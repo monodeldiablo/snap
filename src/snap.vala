@@ -25,22 +25,18 @@ using DBus;
 /*
    FIXME: This should be Xesam.
 */
-using Tracker;
+//using Tracker;
 using Gdk;
 /* 
    FIXME: This belongs elsewhere. Separate UI from logic.
 */
 using Gtk;
-/* 
-   FIXME: Drop this when thumb paths are rolled into GLib 2.16.
-*/
-using Gnome;
 
-[DBusInterface (name = "org.freedesktop.Tracker.Search")]
-interface Tracker.Search;
+//[DBusInterface (name = "org.freedesktop.Tracker.Search")]
+//interface Tracker.Search;
 
-[DBusInterface (name = "org.freedesktop.Tracker.Keywords")]
-interface Tracker.Keywords;
+//[DBusInterface (name = "org.freedesktop.Tracker.Keywords")]
+//interface Tracker.Keywords;
 
 /* 
    FIXME: This should contain more fields to reduce code and complexity later.
@@ -64,10 +60,10 @@ public enum TAG_COLS {
 }
 
 public class Snap.Client : GLib.Object {
-	DBus.Connection conn;
-	Tracker.Search text_search;
-	Tracker.Keywords tag_search;
-	Gtk.Builder ui;
+	private DBus.Connection conn;
+	private dynamic DBus.Object text_search;
+	private dynamic DBus.Object tag_search;
+	private Gtk.Builder ui;
 
 	/*
 	   FIXME: These variables need more descriptive names. Think: What they do, 
@@ -120,8 +116,8 @@ public class Snap.Client : GLib.Object {
 		   Initialize the Tracker session.
 		*/
 		conn = DBus.Bus.get (DBus.BusType .SESSION);
-		text_search = conn.get_object<Tracker.Search> ("org.freedesktop.Tracker", "/org/freedesktop/tracker");
-		tag_search = conn.get_object<Tracker.Keywords> ("org.freedesktop.Tracker", "/org/freedesktop/tracker");
+		text_search = conn.get_object ("org.freedesktop.Tracker", "/org/freedesktop/tracker", "org.freedesktop.Tracker.Search");
+		tag_search = conn.get_object ("org.freedesktop.Tracker", "/org/freedesktop/tracker", "org.freedesktop.Tracker.Keywords");
 
 		/*
 		   Pre-populate the tag sidebar with values.
