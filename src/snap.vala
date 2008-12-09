@@ -125,7 +125,6 @@ public class Snap.Client : GLib.Object {
 		   FIXME: Vala doesn't seem to like arrays of arrays of strings, but the
 		          GetList() method returns an array of results in the form of
 		          [keyword, keyword count].
-		*/
 		string[,] tags;
 
 		try {
@@ -142,6 +141,7 @@ public class Snap.Client : GLib.Object {
 		}
 		
 		tag_view.set_model (tag_store);
+		*/
 
 		/*
 		   Finish up the initialization sequence.
