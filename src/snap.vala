@@ -86,7 +86,8 @@ public class Snap.Client : GLib.Object {
 		ui = new Gtk.Builder ();
 		
 		try {
-			ui.add_from_file (Path.build_filename(Config.PACKAGE_DATADIR, "main.ui"));
+			//ui.add_from_file (Path.build_filename(Config.PACKAGE_DATADIR, "main.ui"));
+			ui.add_from_file (Path.build_filename("data", "main.ui"));
 		} catch (GLib.Error e) {
 			critical ("Error while initializing Snap: %s", e.message);
 		}
@@ -125,9 +126,15 @@ public class Snap.Client : GLib.Object {
 		          GetList() method returns an array of results in the form of
 		          [keyword, keyword count].
 		*/
-		string[,] tags = tag_search.GetList ("Images");
+		string[,] tags;
+
+		try {
+			tags = tag_search.GetList ("Images");
+		} catch (GLib.Error e) {
+			critical ("Error while fetching tags: %s", e.message);
+		}
 		
-		foreach (string[] tag in tags) {
+		foreach (string tag in tags) {
 			Gtk.TreeIter iter;
 			
 			tag_store.append (out iter);
@@ -156,10 +163,10 @@ public class Snap.Client : GLib.Object {
 		/* 
 		   FIXME: Remove timing code.
 		*/
-		GLib.TimeVal start;
-		GLib.TimeVal end;
+		//GLib.TimeVal start;
+		//GLib.TimeVal end;
 		
-		start.get_current_time ();
+		//start.get_current_time ();
 		
 		message ("Initiating search...");
 		
@@ -203,8 +210,8 @@ public class Snap.Client : GLib.Object {
 		*/
 		icon_view.set_model (icon_store);
 		
-		end.get_current_time ();		
-		message ("Search and population took %d sec.", end.tv_sec - start.tv_sec);
+		//end.get_current_time ();		
+		//message ("Search and population took %d sec.", end.tv_sec - start.tv_sec);
 		
 		progress_bar.hide ();
 		status_label.set_text ("Found %d images matching '%s'.".printf (count, query));
@@ -221,7 +228,7 @@ public class Snap.Client : GLib.Object {
 		}
 	}
 	
-	private pointer add_file_to_store (string file) {
+	private void add_file_to_store (string file) {
 		Gtk.TreeIter iter;
 		Gdk.Pixbuf pix;
 		string path;
@@ -255,26 +262,21 @@ public class Snap.Client : GLib.Object {
 		} catch (GLib.Error e) {
 			critical ("Error while loading %s: %s", file, e.message);
 		}
-		
-		return null;
 	}
 
 	private string get_thumb_path (string image_path) {
 		string uri;
-		/*
 		string digest;
-		*/
 		string path;
-		uri = GLib.Filename.to_uri (image_path);
 
 		/*
 		   FIXME: This is the only function we require from libgnome and, as of GLib
 		          2.16, we no longer actually need it. Kill it and replace with:
+		*/
 		
+		uri = GLib.Filename.to_uri (image_path);
 		digest = GLib.Checksum.compute_for_string(GLib.ChecksumType.MD5, uri, -1);
 		path = GLib.Path.build_filename(GLib.Environment.get_home_dir(), ".thumbnails/normal", digest + ".png");
-		*/
-		path = Gnome.thumbnail_path_for_uri (uri, Gnome.ThumbnailSize.NORMAL);
 	
 		return path;	
 	}
@@ -284,7 +286,7 @@ public class Snap.Client : GLib.Object {
 		
 		Gtk.init (ref args);
 
-		var snap = new Client ();
+		var snap = new Snap.Client ();
 		
 		Gtk.main ();
 		
