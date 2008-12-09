@@ -31,7 +31,7 @@ snap_SOURCES = \
 	$(NULL)
 
 src/snap.vala.stamp: $(snap_VALASOURCES)
-	$(VALAC) --vapidir $(top_srcdir) --pkg config --pkg dbus-glib-1 --pkg gdk-2.0 --pkg gtk+-2.0 --pkg --thread --basedir $(top_srcdir) -g $^
+	$(VALAC) --vapidir $(top_srcdir) --pkg config --pkg dbus-glib-1 --pkg gdk-2.0 --pkg gtk+-2.0 --thread --basedir $(top_srcdir) -g $^
 	touch $@
 
 snap_LDADD = \
