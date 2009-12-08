@@ -1,0 +1,12 @@
+API
+===
+
+  * rotate_photo (path, degrees) => bool
+  * delete_photo (path) => bool
+  * add_tag (path, tag) => bool
+  * remove_tag (path, tag) => bool
+  * get_tags (path) => tags
+  * get_attributes (path) => attributes
+  * search (tags_or_keywords_or_a_date_range) => paths
+  * import_tags (file) => bool
+  * export_tags (file) => bool
