@@ -1,0 +1,56 @@
+Snap: Simple photo management
+=============================
+
+Snap aims to be very good at a single thing: helping you with your digital
+photo management workflow. It won't feature red-eye removal, one-touch image
+enhancement, or any other neato gimmicks. It just provides a clean and easy
+interface for organizing your photos. Snap wants to get out of your way and
+leave the heavy lifting to more specialized applications. If it is doing its
+job, you won't spend very much of your time using Snap at all.
+
+Desired features
+----------------
+  * arbitrary tagging support
+     * enables any kind of workflow
+     * fixed tags can be dropped onto images from a "tag bar" on one side
+     * the tag list can be reordered (it is rank ordered by default, by
+       frequency of use if the user doesn't specify an order)
+     * the tag list can have a "more" expander (a la GMail tags) once it grows
+       beyond a usable height
+     * tags can be assigned a color (defaults to semi-random color distribution
+       scheme)
+  * implicit tagging support
+     * the app will tag if the user has "seen" this photo before, thereby
+       sensing new image additions by their absence of this tag
+     * various statistics can be generated and added/edited as tags (# times
+       viewed, etc)
+  * tag view (only photos with a given tag(s) are shown... see search view) 
+  * calendar view (heat-mapped calendar widget, pale blue -> bright red),
+    probably implemented on top of the search API
+  * image view (a single image, with tag & EXIF information displayed... including GPS coords on a map!)
+  * search view (search by tag, file name, date, etc.)
+  * remove tag(s) (removes the given tags from the selected items)
+  * remove image (deletes the image, with a little sanity dialog)
+  * rubber band select & ctrl+a select
+  * lossless rotate!
+  * delete file (prompts if a RAW file with the same name exists)
+  * delete just attached RAW file
+  * open file in other program
+  * open attached RAW files in other program (def: Gimp or other RAW editor)
+  * date-ordered tree (files are named YYYYMMDDhhmmssxx.[jpeg,jpg,nef,???] and
+    live in a directory like YYYY/MM/DD/[file])
+
+Implementation ideas
+--------------------
+  * file import ties into gPhoto import mechanism & HAL system (whatever GNOME
+    uses to pop up those annoying dialogs)
+  * Tracker for tags, search, etc
+  * Vala with minimal dependencies for simplicity and maintainability
+  * design UI w/Marijana's heavy input
+  * write API first
+  * implement tag import & export, to avoid tying the user to a single machine
+    (Tracker tags are local)... this should be easy, since the file name is a
+    natural key
+  * focus on SPEED! (import, navigation, search, etc)
+  * if the object model & API are well-designed, consider embedding Gjs or
+    SEED for workflow scripting & plugins
