@@ -39,6 +39,11 @@ Desired features
   * open attached RAW files in other program (def: Gimp or other RAW editor)
   * date-ordered tree (files are named YYYYMMDDhhmmssxx.[jpeg,jpg,nef,???] and
     live in a directory like YYYY/MM/DD/[file])
+  * import dialog allows user to select which photos (including "all") to
+    import
+  * user can change the thumbnail size in the various views
+  * has default values on import for artist, copyright, etc.
+  * allows the user to edit some EXIF/IPTC/XMP fields on a per-image basis
 
 Implementation ideas
 --------------------
@@ -51,6 +56,52 @@ Implementation ideas
   * implement tag import & export, to avoid tying the user to a single machine
     (Tracker tags are local)... this should be easy, since the file name is a
     natural key
+  * alternatively (and preferred), each photo has the tags embedded into its
+    EXIF metadata
+  * look into XMP metadata (the exempi library can be wrapped)
+  * extract the thumb from the image, if possible
+  * look into libopenraw for NEF support
   * focus on SPEED! (import, navigation, search, etc)
   * if the object model & API are well-designed, consider embedding Gjs or
     SEED for workflow scripting & plugins
+
+EXIF/IPTC/XMP tags with read/write support
+------------------------------------------
+see: http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/EXIF.html
+see: http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/IPTC.html
+see: http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/XMP.html
+
+* EXIF:Author
+* EXIF:Copyright
+* EXIF:ImageDescription
+* EXIF:UserComment
+* EXIF:Annotations?
+* EXIF:Rating
+* EXIF:GpsInfo
+* EXIF:PreviewApplicationName
+* EXIF:PreviewApplicationVersion
+* IPTC:Category
+* IPTC:Keywords
+* IPTC:Headline
+* IPTC:Credit
+* IPTC:Source
+* IPTC:CopyrightNotice
+* IPTC:Contact
+* IPTC:Caption-Abstract (2000 character limit)
+* IPTC:LocalCaption
+* IPTC:DocumentNotes (1024 character limit)
+* XMP:cc namespace (all Creative Commons tags)
+* XMP:dc namespace (all Dublin Core tags)
+* XMP:exif namespace (ideally, these would be synched with EXIF tags)
+* XMP:iptc4xmpCore namespace (all IPTC tags)
+* XMP:iptc4xmpExt namespace (IPTC editing & context tags)
+* XMP:xmp:Advisory
+* XMP:xmp:BaseUrl
+* XMP:xmp:Label (for tags?!)
+* XMP:xmp:Rating
+* XMP:xmpRights namespace
+
+Inspiration
+-----------
+* jbrout (http://jbrout.python-hosting.com/)
+* niepce
