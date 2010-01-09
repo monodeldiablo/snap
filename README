@@ -27,7 +27,12 @@ Desired features
   * tag view (only photos with a given tag(s) are shown... see search view) 
   * calendar view (heat-mapped calendar widget, pale blue -> bright red),
     probably implemented on top of the search API
-  * image view (a single image, with tag & EXIF information displayed... including GPS coords on a map!)
+  * image view (a single image)
+    * a summary pane with tag & EXIF information displayed
+    * right and left navigation
+    * fullscreen button
+    * slideshow (optional)
+    * GPS coords on a map?!
   * search view (search by tag, file name, date, etc.)
   * remove tag(s) (removes the given tags from the selected items)
   * remove image (deletes the image, with a little sanity dialog)
@@ -47,23 +52,26 @@ Desired features
 
 Implementation ideas
 --------------------
-  * file import ties into gPhoto import mechanism & HAL system (whatever GNOME
-    uses to pop up those annoying dialogs)
+  * file import ties into gvfs-gphoto2-volume-monitor
   * Tracker for tags, search, etc
   * Vala with minimal dependencies for simplicity and maintainability
   * design UI w/Marijana's heavy input
   * write API first
-  * implement tag import & export, to avoid tying the user to a single machine
-    (Tracker tags are local)... this should be easy, since the file name is a
-    natural key
-  * alternatively (and preferred), each photo has the tags embedded into its
-    EXIF metadata
   * look into XMP metadata (the exempi library can be wrapped)
-  * extract the thumb from the image, if possible
+    * the application will look in the XMP payload to read & write tags, but
+      they will need to be synched with the underlying EXIF & IPTC tags to be
+      100% portable
+  * each photo has the tags embedded into its EXIF metadata
   * look into libopenraw for NEF support
+  * for unified EXIF/IPTC/XMP + thumbnail extraction, exiv2 sounds perfect (but
+    it's in C++... which blows)
+  * GStreamer seems to also have support for tags, but possibly only for
+    reading...
+  * extract the thumb from the image, if possible
   * focus on SPEED! (import, navigation, search, etc)
   * if the object model & API are well-designed, consider embedding Gjs or
     SEED for workflow scripting & plugins
+  * to display maps, look into libchamplain
 
 EXIF/IPTC/XMP tags with read/write support
 ------------------------------------------
