@@ -8,6 +8,50 @@ interface for organizing your photos. Snap wants to get out of your way and
 leave the heavy lifting to more specialized applications. If it is doing its
 job, you won't spend very much of your time using Snap at all.
 
+Implementation Priorities
+-------------------------
+
+v1.0:
+  * select a "photo directory"
+  * import photos into a date-ordered tree in the above photo directory
+  * stick NEFs into a parallel tree, named identically to their partner JPG
+  * create thumbnails of said images, after import, and place them into a
+    similar tree
+  * ability to browse the photos
+    * basic scrolling ability (LTR slider, no pretty graphics)
+  * ability to delete unwanted photos from the browse window
+    * one "delete JPG" action (better to use the less-specific "derived" or
+      "low-res")
+    * one "delete NEF" action (better to use the less-specific "raw" or
+      "hi-res")
+    * one "delete both" action
+  * lossless rotation
+    * reload thumbnail and photo after rotation
+  * ability to differentiate between photos that have NEFs and those that don't
+    * perhaps the borders around the photos?
+    * better yet, a star or some other emblem on the corner of the photo
+      (film roll emblem!)
+  * ability to tag photos from the browse window
+    * have a tag bar on the side, w/check boxes to indicate if selected photo
+      (or photos) is (are) tagged
+    * all tags to JPGs transparently apply to NEFs, too
+  * ability to create tags
+  * ability to delete tags
+  * ability to rename tags
+  * image view w/ability to tag (or just zoom image to fill thumbnail area)
+
+v2.0+:
+  * ability to select multiple photos
+  * pretty 2-level timeline slider for navigating through time
+  * ability to search by tags, metadata, etc.
+  * ability to reorder tags
+  * open photo (and/or NEF) in external program
+  * import dialog allows user to select which photos (including "all") to
+    import
+  * user can change the thumbnail size in the various views
+  * has default values on import for artist, copyright, etc.
+  * allows the user to edit some EXIF/IPTC/XMP fields on a per-image basis
+
 Desired features
 ----------------
   * arbitrary tagging support
@@ -15,8 +59,7 @@ Desired features
      * fixed tags can be dropped onto images from a "tag bar" on one side
      * the tag list can be reordered (it is rank ordered by default, by
        frequency of use if the user doesn't specify an order)
-     * the tag list can have a "more" expander (a la GMail tags) once it grows
-       beyond a usable height
+     * the tag list can have a scroll bar once it grows beyond a usable height
      * tags can be assigned a color (defaults to semi-random color distribution
        scheme)
   * implicit tagging support
@@ -25,15 +68,21 @@ Desired features
      * various statistics can be generated and added/edited as tags (# times
        viewed, etc)
   * tag view (only photos with a given tag(s) are shown... see search view) 
-  * calendar view (heat-mapped calendar widget, pale blue -> bright red),
+  * calendar view (heat-mapped calendar widget, pale blue -> bright red?),
     probably implemented on top of the search API
+    * should be implemented as a scroll widget on top, a la F-Spot or the
+      Timeline JS library (max length of bottom "year" band = 5 years or
+      something manageable)
+  * zoom view (zooms an image in the existing view to almost -- but not quite
+    -- the full window, allowing the dragging of tags onto the image (like
+    image view, but not in a separate window)
   * image view (a single image)
     * a summary pane with tag & EXIF information displayed
     * right and left navigation
     * fullscreen button
     * slideshow (optional)
     * GPS coords on a map?!
-  * search view (search by tag, file name, date, etc.)
+  * search view (search by tag, file name, date, metadata, etc.)
   * remove tag(s) (removes the given tags from the selected items)
   * remove image (deletes the image, with a little sanity dialog)
   * rubber band select & ctrl+a select
@@ -57,17 +106,27 @@ Implementation ideas
   * Vala with minimal dependencies for simplicity and maintainability
   * design UI w/Marijana's heavy input
   * write API first
+    * have separate daemons for long-running processes that are launched on
+      client request
+      * import daemon
+      * rotate daemon
+      * delete daemon
+      * tag daemon (tag & untag)
   * look into XMP metadata (the exempi library can be wrapped)
     * the application will look in the XMP payload to read & write tags, but
       they will need to be synched with the underlying EXIF & IPTC tags to be
       100% portable
   * each photo has the tags embedded into its EXIF metadata
+    * use Exif.Photo.UserComment for Tracker support (NO! Not anymore!)
+    * use Iptc.Application2.Keywords for other application support, and because
+      it's the Right Thing (call Tracker.Metadata.Set to make sure Tracker
+      knows about it)
   * look into libopenraw for NEF support
   * for unified EXIF/IPTC/XMP + thumbnail extraction, exiv2 sounds perfect (but
     it's in C++... which blows)
   * GStreamer seems to also have support for tags, but possibly only for
     reading...
-  * extract the thumb from the image, if possible
+  * extract the thumb from the image, if possible (exiv2 -ep1 <file name>)
   * focus on SPEED! (import, navigation, search, etc)
   * if the object model & API are well-designed, consider embedding Gjs or
     SEED for workflow scripting & plugins
@@ -113,3 +172,4 @@ Inspiration
 -----------
 * jbrout (http://jbrout.python-hosting.com/)
 * niepce
+

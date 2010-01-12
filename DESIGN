@@ -1,12 +1,31 @@
 API
 ===
 
-  * rotate_photo (path, degrees) => bool
-  * delete_photo (path) => bool
+  Global Methods:
+
+  * list_tags () => tags
+  * create_tag (tag) => bool
+  * delete_tag (tag) => bool
+  * rename_tag (tag, new_tag) => bool
+  * import_directory (path) => bool (necessary?)
+  * import_photo (path) => bool
+  * search (tags_or_attributes_or_a_date_range) => paths
+
+  Photo Methods:
+
+  * get_tags (path) => tags
   * add_tag (path, tag) => bool
   * remove_tag (path, tag) => bool
-  * get_tags (path) => tags
+  * has_hi_res (path) => bool
+  * rotate_photo (path, degrees) => bool
+  * delete_photo (path) => bool
+  * add_attribute (path, key, value) => true
   * get_attributes (path) => attributes
-  * search (tags_or_keywords_or_a_date_range) => paths
-  * import_tags (file) => bool
-  * export_tags (file) => bool
+
+  Signals:
+
+  * imported_photo (path)
+  * rotated_photo (path)
+  * deleted_photo (path)
+  * added_tag (tag, path)
+  * removed_tag (tag, path)
