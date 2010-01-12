@@ -168,7 +168,7 @@ namespace Snap
 			// Notify future invocations that we're on the case.
 			this.in_progress.lock ();
 
-			while (this.delete_queue.length () > 0)
+			do
 			{
 				string path = this.delete_queue.pop ();
 				int success = GLib.FileUtils.remove (path);
@@ -185,7 +185,7 @@ namespace Snap
 				{
 					critical ("%s not deleted. delete returned %d", path, success);
 				}
-			}
+			} while (this.delete_queue.length () > 0);
 
 			this.in_progress.unlock ();
 
