@@ -24,121 +24,39 @@
 using GLib;
 using DBus;
 
-// FIXME: Use the built-in logging facilities!
-// FIXME: Investigate using a timeout or something to keep this daemon alive
-//        for some fixed period past the last operation, to save on startup
-//        costs.
-
 namespace Snap
 {
 	[DBus (name = "org.washedup.Snap.DeleteDaemon")]
-	public class DeleteDaemon : GLib.Object
+	public class DeleteDaemon : Daemon
 	{
-		// The application main loop.
-		private GLib.MainLoop mainloop;
-
-		/***********
-		* SETTINGS *
-		***********/
-		
-		// FIXME: These settings should probably be persisted using GConf or
-		//        something.
-		private string photo_directory;
-
-		/******************
-		* DATA STRUCTURES *
-		******************/
-
-		private GLib.AsyncQueue<string> delete_queue;
-		private GLib.Mutex in_progress;
+		string dbus_object_name = "org.washedup.Snap.DeleteDaemon";
+		string dbus_object_path = "/org/washedup/Snap/DeleteDaemon";
 
 		/**********
 		* SIGNALS *
 		**********/
 
-		// Indicates that the photo at *path* was successfully deleted.
-		public signal void photo_deleted (string path);
-		
 		// Indicates that the photo at *path* has been successfully appended to the
 		// delete queue.
 		// FIXME: Is *queue_length* really necessary?
-		public signal void delete_enqueued (string path, uint queue_length);
+		public signal void delete_request_enqueued (string path, uint queue_length);
+
+		// Indicates that the photo at *path* was successfully deleted.
+		public signal void photo_deleted (string path);
 
 		/************
 		* OPERATION *
 		************/
 
-		// The constructor...
-		DeleteDaemon (string[] args)
+		public DeleteDaemon (string[] args)
 		{
-			this.mainloop = new GLib.MainLoop (null, false);
-			this.in_progress = new Mutex ();
-
-			// Hook up signals.
-			delete_enqueued += delete_photos_in_queue;
-			
-			// FIXME: Fetch photo directory from GConf or something.
-			
-			debug ("DeleteDaemon instantiated.");
-			register_dbus_service ();
+			hook_up_signals ();
+			this.register_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
-		// ... and its darker counterpart, the destructor.
-		~DeleteDaemon ()
+		private void hook_up_signals ()
 		{
-		}
-
-		// Run the application.
-		private void run ()
-		{
-			this.mainloop.run ();
-		}
-
-		// Tear down the application.
-		public void quit ()
-		{
-			debug ("Quitting...");
-
-			// Let clients and listeners know that we're going bye bye.
-			//exiting ();
-			
-			// Actually, finally, really go away.
-			debug ("Goodbye!");
-			this.mainloop.quit ();
-		}
-
-		// Register DeleteDaemon as a DBus service.
-		private void register_dbus_service ()
-		{
-			try
-			{
-				var conn = DBus.Bus.get (DBus.BusType.SESSION);
-
-				dynamic DBus.Object dbus = conn.get_object ("org.freedesktop.DBus",
-					"/org/freedesktop/DBus",
-					"org.freedesktop.DBus");
-
-				uint request_name_result = dbus.request_name ("org.washedup.Snap.DeleteDaemon", (uint) 0);
-
-				if (request_name_result == DBus.RequestNameReply.PRIMARY_OWNER)
-				{
-					conn.register_object ("/org/washedup/Snap/DeleteDaemon", this);
-					
-					debug ("Successfully registered DBus service!");
-					
-					run ();
-				}
-
-				else
-				{
-					quit ();
-				}
-			}
-
-			catch (DBus.Error e)
-			{
-				stderr.printf ("Shit! %s\n", e.message);
-			}
+			delete_request_enqueued += delete_photos_in_queue;
 		}
 
 		/**********
@@ -146,20 +64,20 @@ namespace Snap
 		**********/
 
 		// Append the photo at *path* to the delete queue, firing the
-		// *delete_enqueued* signal when done.
+		// *delete_request_enqueued* signal when done.
 		public void delete_photo (string path)
 		{
-			if (this.delete_queue == null)
+			if (this.request_queue == null)
 			{
-				this.delete_queue = new GLib.AsyncQueue<string> ();
+				this.request_queue = new GLib.AsyncQueue<string> ();
 			}
 				
-			this.delete_queue.push (path);
+			this.request_queue.push (path);
 
 			debug ("Got request to delete '%s'", path);
 
 			// Signal that the delete request has been handled.
-			delete_enqueued (path, this.delete_queue.length ());
+			delete_request_enqueued (path, this.request_queue.length ());
 		}
 
 		// Perform the actual deletion of items in the queue.
@@ -168,26 +86,24 @@ namespace Snap
 			// Notify future invocations that we're on the case.
 			this.in_progress.lock ();
 
-			if (this.delete_queue.length () > 0)
+			if (this.request_queue.length () > 0)
 			{
 				do
 				{
-					string path = this.delete_queue.pop ();
-					int success = GLib.FileUtils.remove (path);
+					string path = this.request_queue.pop ();
+					int success = FileUtils.remove (path);
 
 					if (success >= 0)
 					{
-						debug ("Deleted '%s'", path);
-
 						// Signal that the photo has been successfully deleted.
 						photo_deleted (path);
 					}
 
 					else
 					{
-						critical ("%s not deleted. delete returned %d", path, success);
+						critical ("Could not delete file at '%s'!", path);
 					}
-				} while (this.delete_queue.length () > 0);
+				} while (this.request_queue.length () > 0);
 			}
 
 			this.in_progress.unlock ();
