@@ -168,24 +168,27 @@ namespace Snap
 			// Notify future invocations that we're on the case.
 			this.in_progress.lock ();
 
-			do
+			if (this.delete_queue.length () > 0)
 			{
-				string path = this.delete_queue.pop ();
-				int success = GLib.FileUtils.remove (path);
-
-				if (success >= 0)
+				do
 				{
-					debug ("Deleted '%s'", path);
+					string path = this.delete_queue.pop ();
+					int success = GLib.FileUtils.remove (path);
 
-					// Signal that the photo has been successfully deleted.
-					photo_deleted (path);
-				}
+					if (success >= 0)
+					{
+						debug ("Deleted '%s'", path);
 
-				else
-				{
-					critical ("%s not deleted. delete returned %d", path, success);
-				}
-			} while (this.delete_queue.length () > 0);
+						// Signal that the photo has been successfully deleted.
+						photo_deleted (path);
+					}
+
+					else
+					{
+						critical ("%s not deleted. delete returned %d", path, success);
+					}
+				} while (this.delete_queue.length () > 0);
+			}
 
 			this.in_progress.unlock ();
 
