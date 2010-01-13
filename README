@@ -111,7 +111,7 @@ Implementation ideas
       * import daemon
       * rotate daemon
       * delete daemon
-      * tag daemon (tag & untag)
+      * tag daemon (add and remove)
   * look into XMP metadata (the exempi library can be wrapped)
     * the application will look in the XMP payload to read & write tags, but
       they will need to be synched with the underlying EXIF & IPTC tags to be

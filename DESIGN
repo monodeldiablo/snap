@@ -24,8 +24,25 @@ API
 
   Signals:
 
-  * imported_photo (path)
+  * imported_photo (old_path, new_path)
   * rotated_photo (path)
   * deleted_photo (path)
   * added_tag (tag, path)
   * removed_tag (tag, path)
+
+System Design
+=============
+
+Long-running processes get their own daemons, which are launched by DBus call
+when needed and then go away (ideally, they'd hang around for a minute or so
+just to cut down on churn and reduce startup costs).
+
+These daemons include:
+
+  * import daemon - handles requests to import photos into the photo directory
+                    using the proper naming scheme
+  * rotate daemon - handles requests to rotate photos
+  * delete daemon - handles requests to delete photos
+  * tag daemon    - handles requests to add or remove tags to/from photos (this
+                    may also explicitly call Tracker.Metadata.Set for some
+		    attributes, like Image:Keywords, Image.Copyright, etc)
