@@ -70,13 +70,7 @@ namespace Snap
 
 		public RotateDaemon (string[] args)
 		{
-			hook_up_signals ();
-			this.register_dbus_service (dbus_object_name, dbus_object_path);
-		}
-
-		private void hook_up_signals ()
-		{
-			rotate_request_enqueued += rotate_photos_in_queue;
+			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
 		/**********
@@ -91,39 +85,52 @@ namespace Snap
 			{
 				this.request_queue = new GLib.AsyncQueue<RotateRequest> ();
 			}
-				
-			this.request_queue.push (new RotateRequest (path, degrees));
 
-			debug ("Got request to rotate '%s' %d degrees", path, degrees);
+			this.request_queue.push (new RotateRequest (path, degrees));
 
 			// Signal that the rotate request has been handled.
 			rotate_request_enqueued (path, this.request_queue.length ());
+
+			debug ("Enqueued request to rotate '%s' %d degrees!", path, degrees);
+
+			if (this.worker_thread == null)
+			{
+				try
+				{
+					this.worker_thread = GLib.Thread.create (this.rotate_photos_in_queue, true);
+				}
+
+				catch (GLib.ThreadError e)
+				{
+					critical ("Error creating a new thread: %s", e.message);
+				}
+			}
 		}
 
 		// Perform the actual deletion of items in the queue.
-		private void rotate_photos_in_queue ()
+		private void* rotate_photos_in_queue ()
 		{
-			// Notify future invocations that we're on the case.
-			this.in_progress.lock ();
-
 			if (this.request_queue.length () > 0)
 			{
 				do
 				{
+					//this.request_queue.lock ();
 					RotateRequest req = this.request_queue.pop ();
-					bool success = perform_rotation (req.path, req.degrees);
+					//this.request_queue.unlock ();
+
+					bool success = this.perform_rotation (req.path, req.degrees);
 
 					if (success)
 					{
 						// Signal that the photo has been successfully rotated.
-						photo_rotated (req.path, req.degrees);
+						this.photo_rotated (req.path, req.degrees);
+						debug ("Successfully rotated '%s' %d degrees!", req.path, req.degrees);
 					}
 				} while (this.request_queue.length () > 0);
 			}
 
-			this.in_progress.unlock ();
-
-			quit ();
+			this.worker_thread = null;
+			return ((void*) 0);
 		}
 
 		private bool perform_rotation (string path, int degrees)
@@ -161,7 +168,7 @@ namespace Snap
 		/************
 		* EXECUTION *
 		************/
-		
+
 		static int main (string[] args)
 		{
 			new RotateDaemon (args);

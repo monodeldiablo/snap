@@ -5,3 +5,4 @@ v0.1.0
 * write a test harness
 * implement logging! (in the daemon base class, in the user's data dir)
 * implement some sort of "request failed" signal to emit when shit hits the fan
+* add the async fixes to the other daemons

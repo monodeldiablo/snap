@@ -41,7 +41,8 @@ namespace Snap
 		******************/
 
 		public GLib.AsyncQueue<string> request_queue;
-		public GLib.Mutex in_progress;
+		public weak GLib.Thread worker_thread;
+		public uint timeout_id;
 
 		/************
 		* OPERATION *
@@ -51,7 +52,6 @@ namespace Snap
 		public Daemon ()
 		{
 			this.mainloop = new GLib.MainLoop (null, false);
-			this.in_progress = new Mutex ();
 		}
 
 		// ... and its darker counterpart, the destructor.
@@ -60,7 +60,7 @@ namespace Snap
 		}
 
 		// Register the daemon as a DBus service.
-		public void register_dbus_service (string object_name, string object_path)
+		public void start_dbus_service (string object_name, string object_path)
 		{
 			try
 			{
@@ -75,16 +75,19 @@ namespace Snap
 				if (request_name_result == DBus.RequestNameReply.PRIMARY_OWNER)
 				{
 					conn.register_object (object_path, this);
-					
+
 					debug ("Successfully registered DBus service!");
-					
+
+					// Add a timeout to check if this is active every n seconds.
+					this.timeout_id = GLib.Timeout.add (10000, this.exit_if_inactive);
+
 					this.mainloop.run ();
 				}
 
 				else
 				{
 					critical ("Another instance already owns this bus address!");
-					quit ();
+					this.quit ();
 				}
 			}
 
@@ -94,10 +97,27 @@ namespace Snap
 			}
 		}
 
+		// Check every n seconds if the application is inactive and, if so, quit.
+		public bool exit_if_inactive ()
+		{
+			debug ("exit_if_inactive called");
+			if (this.worker_thread == null)
+			{
+				this.quit ();
+			}
+
+			return true;
+		}
+
 		// Tear down the application.
 		public void quit ()
 		{
 			debug ("Quitting...");
+
+			if (this.worker_thread != null)
+			{
+				this.worker_thread.join ();
+			}
 
 			// Let clients and listeners know that we're going bye bye.
 			//exiting ();
