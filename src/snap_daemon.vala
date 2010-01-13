@@ -83,6 +83,7 @@ namespace Snap
 
 				else
 				{
+					critical ("Another instance already owns this bus address!");
 					quit ();
 				}
 			}

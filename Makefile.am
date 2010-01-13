@@ -32,11 +32,6 @@ org.washedup.Snap.DeleteDaemon.service:
 	cp org.washedup.Snap.DeleteDaemon.service.in org.washedup.Snap.DeleteDaemon.service && \
 	echo "Exec=${bindir}/snap-delete-daemon" >> org.washedup.Snap.DeleteDaemon.service
 
-snapappdir = ${datadir}/applications
-snapapp_DATA = \
-	snap.desktop \
-	$(NULL)
-
 snapdocdir = ${docdir}
 snapdoc_DATA = \
 	ChangeLog \

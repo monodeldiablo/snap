@@ -6,29 +6,19 @@ AM_CPPFLAGS = \
 	$(NULL)
 
 AM_VALAFLAGS = \
+	--thread \
 	--vapidir $(top_srcdir)/vapi \
 	--pkg config \
 	--pkg dbus-glib-1 \
 	--pkg gconf-2.0 \
 	--pkg posix \
-	--pkg gtk+-2.0 \
-	--thread \
 	$(NULL)
 
 bin_PROGRAMS = \
-	snap \
 	snap-import-daemon \
 	snap-rotate-daemon \
 	snap-tag-daemon \
 	snap-delete-daemon \
-	$(NULL)
-
-snap_SOURCES = \
-	snap.vala \
-	$(NULL)
-
-snap_LDADD = \
-	$(SNAP_LIBS) \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \

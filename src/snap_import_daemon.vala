@@ -42,8 +42,8 @@ namespace Snap
 	{
 		private string dbus_object_name = "org.washedup.Snap.ImportDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/ImportDaemon";
-
 		private string photo_directory;
+		private weak GLib.Thread worker_thread;
 
 		/**********
 		* SIGNALS *
@@ -69,13 +69,7 @@ namespace Snap
 			//this.photo_directory = GLib.Environment.get_user_special_dir (GLib.UserDirectory.PICTURES);
 			this.photo_directory = "/home/brian/photos";
 
-			hook_up_signals ();
 			this.register_dbus_service (dbus_object_name, dbus_object_path);
-		}
-
-		private void hook_up_signals ()
-		{
-			import_request_enqueued += import_photos_in_queue;
 		}
 
 		/**********
@@ -90,24 +84,38 @@ namespace Snap
 			{
 				this.request_queue = new GLib.AsyncQueue<string> ();
 			}
-				
+
+			this.request_queue.lock ();
 			this.request_queue.push (path);
+			this.request_queue.unlock ();
 
 			// Signal that the import request has been handled.
 			import_request_enqueued (path, this.request_queue.length ());
+
+			if (worker_thread == null)
+			{
+				try
+				{
+					worker_thread = GLib.Thread.create (this.import_photos_in_queue, true);
+				}
+
+				catch (GLib.ThreadError e)
+				{
+					critical ("Error creating a new thread: %s", e.message);
+				}
+			}
 		}
 
 		// Perform the actual import of items in the queue.
-		private void import_photos_in_queue ()
+		private void* import_photos_in_queue ()
 		{
-			// Notify future invocations that we're on the case.
-			this.in_progress.lock ();
-
 			if (this.request_queue.length () > 0)
 			{
 				do
 				{
+					this.request_queue.lock ();
 					string path = this.request_queue.pop ();
+					this.request_queue.unlock ();
 
 					try
 					{
@@ -118,7 +126,7 @@ namespace Snap
 						{
 							// Signal that the photo has been successfully imported.
 							photo_imported (path, new_path);
-							
+
 							debug ("Successfully imported file at '%s' -> '%s'!", path, new_path);
 						}
 
@@ -127,7 +135,7 @@ namespace Snap
 							critical ("Could not import file at '%s'!", path);
 						}
 					}
-					
+
 					catch (GLib.Error e)
 					{
 						critical ("Could not make a new path from '%s': %s", path, e.message);
@@ -135,9 +143,8 @@ namespace Snap
 				} while (this.request_queue.length () > 0);
 			}
 
-			this.in_progress.unlock ();
-
-			quit ();
+			return ((void*) 0);
+			//quit ();
 		}
 
 		// FIXME: Look into using libexif or some other library to do this without
@@ -149,7 +156,7 @@ namespace Snap
 			string suffix;
 			GLib.Regex suffix_ex;
 			GLib.MatchInfo suffix_match;
-			
+
 			try
 			{
 				suffix_ex = new GLib.Regex (".*\\.(?<suffix>nef|NEF|jpg|JPG|jpeg|JPEG)");
@@ -249,7 +256,7 @@ namespace Snap
 				// We determine the proper directory root within the photo directory by
 				// examining the quality of the image.
 				string quality;
-				
+
 				if (suffix == "nef" || suffix == "NEF")
 				{
 					quality = "raw";
@@ -319,7 +326,7 @@ namespace Snap
 		/************
 		* EXECUTION *
 		************/
-		
+
 		static int main (string[] args)
 		{
 			new ImportDaemon (args);
