@@ -29,8 +29,8 @@ namespace Snap
 	[DBus (name = "org.washedup.Snap.DeleteDaemon")]
 	public class DeleteDaemon : Daemon
 	{
-		string dbus_object_name = "org.washedup.Snap.DeleteDaemon";
-		string dbus_object_path = "/org/washedup/Snap/DeleteDaemon";
+		private string dbus_object_name = "org.washedup.Snap.DeleteDaemon";
+		private string dbus_object_path = "/org/washedup/Snap/DeleteDaemon";
 
 		/**********
 		* SIGNALS *
@@ -91,7 +91,7 @@ namespace Snap
 				do
 				{
 					string path = this.request_queue.pop ();
-					int success = FileUtils.remove (path);
+					int success = GLib.FileUtils.remove (path);
 
 					if (success >= 0)
 					{
