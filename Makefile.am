@@ -1,55 +1,64 @@
 NULL = 
 
-AUTOMAKE_OPTIONS = subdir-objects
+#Build in these directories:
 
 SUBDIRS = \
+	src \
+	data \
 	po \
-	data \
 	$(NULL)
 
-DIST_SUBDIRS = \
-	data \
+snapservicedir = ${datadir}/dbus-1/services
+snapservice_DATA = \
+	org.washedup.Snap.ImportDaemon.service \
+	org.washedup.Snap.RotateDaemon.service \
+	org.washedup.Snap.TagDaemon.service \
+	org.washedup.Snap.DeleteDaemon.service \
 	$(NULL)
 
-INCLUDES = \
-	$(SNAP_CFLAGS) \
-	-include $(CONFIG_HEADER) \
-	-DPACKAGE_DATADIR=\"$(pkgdatadir)\"
+org.washedup.Snap.ImportDaemon.service:
+	cp org.washedup.Snap.ImportDaemon.service.in org.washedup.Snap.ImportDaemon.service && \
+	echo "Exec=${bindir}/snap-import-daemon" >> org.washedup.Snap.ImportDaemon.service
+
+org.washedup.Snap.RotateDaemon.service:
+	cp org.washedup.Snap.RotateDaemon.service.in org.washedup.Snap.RotateDaemon.service && \
+	echo "Exec=${bindir}/snap-rotate-daemon" >> org.washedup.Snap.RotateDaemon.service
+
+org.washedup.Snap.TagDaemon.service:
+	cp org.washedup.Snap.TagDaemon.service.in org.washedup.Snap.TagDaemon.service && \
+	echo "Exec=${bindir}/snap-tag-daemon" >> org.washedup.Snap.TagDaemon.service
+
+org.washedup.Snap.DeleteDaemon.service:
+	cp org.washedup.Snap.DeleteDaemon.service.in org.washedup.Snap.DeleteDaemon.service && \
+	echo "Exec=${bindir}/snap-delete-daemon" >> org.washedup.Snap.DeleteDaemon.service
+
+snapappdir = ${datadir}/applications
+snapapp_DATA = \
+	snap.desktop \
 	$(NULL)
 
-BUILT_SOURCES = src/snap.vala.stamp
-
-bin_PROGRAMS = snap
-
-snap_VALASOURCES = \
-	src/snap.vala \
-	$(NULL)
-
-snap_SOURCES = \
-	$(snap_VALASOURCES:.vala=.c) \
-	$(snap_VALASOURCES:.vala=.h) \
-	$(NULL)
-
-src/snap.vala.stamp: $(snap_VALASOURCES)
-	$(VALAC) --vapidir $(top_srcdir) --pkg config --pkg dbus-glib-1 --pkg gdk-2.0 --pkg gtk+-2.0 --thread --basedir $(top_srcdir) -g $^
-	touch $@
-
-snap_LDADD = \
-	$(SNAP_LIBS) \
+snapdocdir = ${docdir}
+snapdoc_DATA = \
+	ChangeLog \
+	README \
+	COPYING \
+	AUTHORS \
+	INSTALL \
+	NEWS \
 	$(NULL)
 
 EXTRA_DIST = \
+	org.washedup.Snap.service.in \
+	$(snapdoc_DATA) \
 	intltool-extract.in \
-	intltool-update.in \
 	intltool-merge.in \
-	$(snap_VALASOURCES) \
-	src/snap.vala.stamp \
+	intltool-update.in \
 	$(NULL)
 
 DISTCLEANFILES = \
+	org.washedup.Snap.service \
 	intltool-extract \
-	intltool-update \
 	intltool-merge \
+	intltool-update \
 	po/.intltool-merge-cache \
 	$(NULL)
-

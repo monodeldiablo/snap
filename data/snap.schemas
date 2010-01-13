@@ -1,0 +1,18 @@
+<gconfschemafile>
+  <schemalist>
+    <schema>
+      <key>/schemas/apps/snap/photo-directory</key>
+      <applyto>/apps/snap/photo-directory</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <default>~/photos</default>
+      <locale name="C">
+        <short>The root photo directory</short>
+      </locale>
+      
+      <locale name="es">
+        <short>El directorio baso de los photos</short>
+      </locale>
+    </schema>
+  </schemalist>
+</gconfschemafile>
