@@ -25,7 +25,7 @@ API
   Signals:
 
   * imported_photo (old_path, new_path)
-  * rotated_photo (path)
+  * rotated_photo (path, degrees)
   * deleted_photo (path)
   * added_tag (tag, path)
   * removed_tag (tag, path)
