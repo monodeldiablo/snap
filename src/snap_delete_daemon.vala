@@ -50,13 +50,7 @@ namespace Snap
 
 		public DeleteDaemon (string[] args)
 		{
-			hook_up_signals ();
-			this.register_dbus_service (dbus_object_name, dbus_object_path);
-		}
-
-		private void hook_up_signals ()
-		{
-			delete_request_enqueued += delete_photos_in_queue;
+			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
 		/**********
@@ -71,50 +65,70 @@ namespace Snap
 			{
 				this.request_queue = new GLib.AsyncQueue<string> ();
 			}
-				
+
 			this.request_queue.push (path);
 
 			debug ("Got request to delete '%s'", path);
 
 			// Signal that the delete request has been handled.
 			delete_request_enqueued (path, this.request_queue.length ());
+
+			debug ("Enqueued request to delete '%s'!", path);
+
+			if (this.worker_thread == null)
+			{
+				try
+				{
+					this.worker_thread = GLib.Thread.create (this.delete_photos_in_queue, true);
+				}
+
+				catch (GLib.ThreadError e)
+				{
+					critical ("Error creating a new thread: %s", e.message);
+				}
+			}
 		}
 
 		// Perform the actual deletion of items in the queue.
-		private void delete_photos_in_queue ()
+		private void* delete_photos_in_queue ()
 		{
-			// Notify future invocations that we're on the case.
-			this.in_progress.lock ();
-
 			if (this.request_queue.length () > 0)
 			{
 				do
 				{
 					string path = this.request_queue.pop ();
-					int success = GLib.FileUtils.remove (path);
+					bool success = this.perform_deletion (path);
 
-					if (success >= 0)
+					if (success)
 					{
 						// Signal that the photo has been successfully deleted.
-						photo_deleted (path);
-					}
-
-					else
-					{
-						critical ("Could not delete file at '%s'!", path);
+						this.photo_deleted (path);
+						debug ("Successfully deleted '%s'!", path);
 					}
 				} while (this.request_queue.length () > 0);
 			}
 
-			this.in_progress.unlock ();
+			this.worker_thread = null;
+			return ((void*) 0);
+		}
 
-			quit ();
+		private bool perform_deletion (string path)
+		{
+			int success = GLib.FileUtils.remove (path);
+
+			if (success < 0)
+			{
+				critical ("Error deleting photo at '%s' (return code: %d)", path, success);
+				return false;
+			}
+
+			return true;
 		}
 
 		/************
 		* EXECUTION *
 		************/
-		
+
 		static int main (string[] args)
 		{
 			new DeleteDaemon (args);

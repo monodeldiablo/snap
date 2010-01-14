@@ -42,8 +42,8 @@ namespace Snap
 	{
 		private string dbus_object_name = "org.washedup.Snap.ImportDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/ImportDaemon";
+
 		private string photo_directory;
-		private weak GLib.Thread worker_thread;
 
 		/**********
 		* SIGNALS *
@@ -54,7 +54,8 @@ namespace Snap
 		// FIXME: Is *queue_length* really necessary?
 		public signal void import_request_enqueued (string path, uint queue_length);
 
-		// Indicates that the photo at *path* was successfully imported.
+		// Indicates that the photo at *old_path* was successfully moved to
+		// *new_path*.
 		public signal void photo_imported (string old_path, string new_path);
 
 		/************
@@ -69,7 +70,7 @@ namespace Snap
 			//this.photo_directory = GLib.Environment.get_user_special_dir (GLib.UserDirectory.PICTURES);
 			this.photo_directory = "/home/brian/photos";
 
-			this.register_dbus_service (dbus_object_name, dbus_object_path);
+			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
 		/**********
@@ -85,18 +86,18 @@ namespace Snap
 				this.request_queue = new GLib.AsyncQueue<string> ();
 			}
 
-			this.request_queue.lock ();
 			this.request_queue.push (path);
-			this.request_queue.unlock ();
 
 			// Signal that the import request has been handled.
 			import_request_enqueued (path, this.request_queue.length ());
 
-			if (worker_thread == null)
+			debug ("Enqueued request to import '%s'!", path);
+
+			if (this.worker_thread == null)
 			{
 				try
 				{
-					worker_thread = GLib.Thread.create (this.import_photos_in_queue, true);
+					this.worker_thread = GLib.Thread.create (this.import_photos_in_queue, true);
 				}
 
 				catch (GLib.ThreadError e)
@@ -113,10 +114,12 @@ namespace Snap
 			{
 				do
 				{
-					this.request_queue.lock ();
 					string path = this.request_queue.pop ();
-					this.request_queue.unlock ();
 
+					// FIXME: Perhaps combine all of this into a single generic call to
+					//        perform_import (), to make this more like DeleteDaemon and
+					//        RotateDaemon, and to simplify pushing more into the base class
+					//        at a later date.
 					try
 					{
 						string new_path = this.make_new_path (path);
@@ -125,31 +128,25 @@ namespace Snap
 						if (success)
 						{
 							// Signal that the photo has been successfully imported.
-							photo_imported (path, new_path);
-
+							this.photo_imported (path, new_path);
 							debug ("Successfully imported file at '%s' -> '%s'!", path, new_path);
-						}
-
-						else
-						{
-							critical ("Could not import file at '%s'!", path);
 						}
 					}
 
-					catch (GLib.Error e)
+					catch (Snap.ImportError e)
 					{
-						critical ("Could not make a new path from '%s': %s", path, e.message);
+						critical ("Error making a new path from '%s': %s", path, e.message);
 					}
 				} while (this.request_queue.length () > 0);
 			}
 
+			this.worker_thread = null;
 			return ((void*) 0);
-			//quit ();
 		}
 
 		// FIXME: Look into using libexif or some other library to do this without
 		//        needing to spawn processes and dump tons of unnecessary strings.
-		private string make_new_path (string path) throws ImportError
+		private string make_new_path (string path) throws Snap.ImportError
 		{
 			// First, we verify that this is a file with the proper extension (and we
 			// figure out what that extension is for later, when we move it).
@@ -164,7 +161,7 @@ namespace Snap
 
 			catch (GLib.RegexError e)
 			{
-				throw new ImportError.REGEX ("Error creating the regular expression to parse the file name for '%s'", path);
+				throw new Snap.ImportError.REGEX ("Error creating the regular expression to parse the file name for '%s'".printf (path));
 			}
 
 			suffix_ex.match (path, 0, out suffix_match);
@@ -176,7 +173,7 @@ namespace Snap
 
 			else
 			{
-				throw new ImportError.SUFFIX ("Error examining '%s': Invalid file type");
+				throw new Snap.ImportError.SUFFIX ("Error examining '%s': Invalid file type".printf (path));
 			}
 
 			// Next, we need to dump the EXIF data for the image.
@@ -196,12 +193,12 @@ namespace Snap
 
 			catch (SpawnError e)
 			{
-				throw new ImportError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
+				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
 			}
 
 			if (success < 0)
 			{
-				throw new ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, success));
+				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, success));
 			}
 
 			// Extract the DateTime and SubSecTime values from the EXIF dump.
@@ -250,7 +247,7 @@ namespace Snap
 
 				else
 				{
-					throw new ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found", path);
+					throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
 				}
 
 				// We determine the proper directory root within the photo directory by
@@ -290,11 +287,10 @@ namespace Snap
 
 			catch (GLib.RegexError e)
 			{
-				throw new ImportError.REGEX ("Error creating the regular expression to parse the EXIF data for '%s'", path);
+				throw new Snap.ImportError.REGEX ("Error creating the regular expression to parse the EXIF data for '%s'".printf (path));
 			}
 		}
 
-		// FIXME: Remember to include the photo directory in the full path.
 		private bool move_photo (string old_path, string new_path)
 		{
 			string dir = GLib.Path.get_dirname (new_path);
