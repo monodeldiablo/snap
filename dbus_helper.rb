@@ -11,6 +11,10 @@ class Snap
     dbus_send("DeleteDaemon", "DeletePhoto", ["string:'#{path}'"])
   end
   
+  def tag_photo(path, tag)
+    dbus_send("TagDaemon", "TagPhoto", ["string:'#{path}'", "string:'#{tag}'"])
+  end
+
   private
 
   def dbus_send(interface, method, args = [])

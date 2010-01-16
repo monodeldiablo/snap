@@ -1,12 +1,6 @@
 v0.1.0
 ------
-* decide whether queue processes should throw exceptions or just return false
-* write a test harness
-* implement logging! (in the daemon base class, in the user's data dir)
-* implement some sort of "request failed" signal to emit when shit hits the fan
-* use GConf for settings (stick it into Daemon base class)
-  * photo directory
-  * seconds for daemons to hang around
+* finish the basic tag daemon
 * push more stuff into the base class
   * all the queue handling is *very* similar
   * the thread creation is identical
@@ -25,12 +19,28 @@ v0.1.0
     * this also solves the "multiple operations on a single file" issue with
       the signals as currently implemented (e.g. 2 "rotate x.jpg 90 deg" calls
       in a row), wherein it's unclear to which call the signal is referring
-* add the async fixes to the other daemons
+* design a metadata daemon, too
+  * ideally, it should be able to modify any valid metadata key
+  * more realistically, it could have translation and amplification for common
+    keys
+    * Artist => Exif.Image.Artist, Xmp.dc.creator
+    * Copyright => Exif.Image.Copyright, Iptc.Application2.Copyright, Xmp.dc.rights
+    * Title => Xmp.dc.title
+    * Description => Exif.Image.ImageDescription, Xmp.dc.description
+    * Keywords (note: these are where the tags are kept) => Iptc.Application2.Keywords, Xmp.dc.subject
+* use GConf for settings (stick it into Daemon base class)
+  * photo directory
+  * seconds for daemons to hang around
+  * Exif.Author default
+  * Iptc.Contact default
+  * Exif.Copyright default (maybe with string interpolation, e.g. "Copyright © %Y
+    Marijana Surkovic. All rights reserved.")
 * moves and deletes are scary (terrifying, actually!)... consider copies and
   moves, respectively, instead
   * "move" just copies from the source to the dest
   * "delete" moves to a "trash" directory, which can be purged periodically or
     browsed and reinstated (via the import API!)
+* implement duplicate checking in the import daemon!
 * consider making the methods more batch-oriented (e.g. tag_photo ->
   tag_photos)
   * one call instead of many (less traffic on the bus)
@@ -41,4 +51,14 @@ v0.1.0
   * semantics are less clear, though, for rotate (rotate all photos by the same
     angle?, have a matching array of angles? if the latter, how often will that
     be used?)
+* decide whether queue processes should throw exceptions or just return false
+* implement some sort of "request failed" signal to emit when shit hits the fan
+  (this could capture exceptions and emit, addressing the question above, too)
+* implement logging!
+  * in the daemon base class
+  * in the user's data dir
+  * maybe use GLib.Environment.get_application_name () to avoid logging as the
+    base class
 * implement artist and copyright settings and defaults in the import daemon
+  * better yet, use the metadata daemon (see above)
+* write a test harness
