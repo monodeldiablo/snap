@@ -32,37 +32,11 @@ namespace Snap
 		MOGRIFY
 	}
 
-	public class RotateRequest : GLib.Object
-	{
-		public string path;
-		public int degrees;
-
-		public RotateRequest (string path, int degrees)
-		{
-			this.path = path;
-			this.degrees = degrees;
-		}
-	}
-
 	[DBus (name = "org.washedup.Snap.RotateDaemon")]
 	public class RotateDaemon : Daemon
 	{
 		private string dbus_object_name = "org.washedup.Snap.RotateDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/RotateDaemon";
-
-		private new GLib.AsyncQueue<RotateRequest> request_queue;
-
-		/**********
-		* SIGNALS *
-		**********/
-
-		// Indicates that the photo at *path* has been successfully appended to the
-		// rotate queue.
-		// FIXME: Is *queue_length* really necessary?
-		public signal void rotate_request_enqueued (string path, uint queue_length);
-
-		// Indicates that the photo at *path* was successfully rotated.
-		public signal void photo_rotated (string path, int degrees);
 
 		/************
 		* OPERATION *
@@ -70,6 +44,7 @@ namespace Snap
 
 		public RotateDaemon (string[] args)
 		{
+			this.processing_method = this.perform_rotation;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
@@ -77,64 +52,29 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the rotate queue, firing the
-		// *rotate_request_enqueued* signal when done.
-		public void rotate_photo (string path, int degrees)
+		// Append the photo at *path* to the rotate queue, returning the request's
+		// unique ID to the client to track.
+		public uint rotate_photo (string path, int degrees)
 		{
-			if (this.request_queue == null)
-			{
-				this.request_queue = new GLib.AsyncQueue<RotateRequest> ();
-			}
+			Request req = new Request ();
+			GLib.Value path_val = GLib.Value (typeof (string));
+			GLib.Value degrees_val = GLib.Value (typeof (int));
 
-			this.request_queue.push (new RotateRequest (path, degrees));
+			path_val.set_string (path);
+			degrees_val.set_int (degrees);
+			req.arguments.append (path_val);
+			req.arguments.append (degrees_val);
 
-			// Signal that the rotate request has been handled.
-			rotate_request_enqueued (path, this.request_queue.length ());
+			uint request_id = this.add_request_to_queue (req);
 
-			debug ("Enqueued request to rotate '%s' %d degrees!", path, degrees);
-
-			if (this.worker_thread == null)
-			{
-				try
-				{
-					this.worker_thread = GLib.Thread.create (this.rotate_photos_in_queue, true);
-				}
-
-				catch (GLib.ThreadError e)
-				{
-					critical ("Error creating a new thread: %s", e.message);
-				}
-			}
+			debug ("Enqueued request to rotate '%s' %d degrees (%u)!", path, degrees, request_id);
+			return request_id;
 		}
 
-		// Perform the actual deletion of items in the queue.
-		private void* rotate_photos_in_queue ()
+		private bool perform_rotation (Request req) throws RotateError
 		{
-			if (this.request_queue.length () > 0)
-			{
-				do
-				{
-					//this.request_queue.lock ();
-					RotateRequest req = this.request_queue.pop ();
-					//this.request_queue.unlock ();
-
-					bool success = this.perform_rotation (req.path, req.degrees);
-
-					if (success)
-					{
-						// Signal that the photo has been successfully rotated.
-						this.photo_rotated (req.path, req.degrees);
-						debug ("Successfully rotated '%s' %d degrees!", req.path, req.degrees);
-					}
-				} while (this.request_queue.length () > 0);
-			}
-
-			this.worker_thread = null;
-			return ((void*) 0);
-		}
-
-		private bool perform_rotation (string path, int degrees)
-		{
+			string path = req.arguments.nth_data (0).get_string ();
+			int degrees = (int) req.arguments.nth_data (1).get_int ();
 			string command = "mogrify -rotate %d %s".printf (degrees, path);
 			string stdout;
 			string stderr;
@@ -150,16 +90,16 @@ namespace Snap
 
 			catch (SpawnError e)
 			{
-				//throw new RotateError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
-				critical ("Error spawning '%s': %s", command, e.message);
-				return false;
+				throw new RotateError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
+				//critical ("Error spawning '%s': %s", command, e.message);
+				//return false;
 			}
 
 			if (success < 0)
 			{
-				//throw new RotateError.MOGRIFY ("Error rotating photo at '%s' (return code: %d)".printf (path, success));
-				critical ("Error rotating photo at '%s' (return code: %d)", path, success);
-				return false;
+				throw new RotateError.MOGRIFY ("Error rotating photo at '%s' (return code: %d)".printf (path, success));
+				//critical ("Error rotating photo at '%s' (return code: %d)", path, success);
+				//return false;
 			}
 
 			return true;

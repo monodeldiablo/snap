@@ -45,19 +45,6 @@ namespace Snap
 
 		private string photo_directory;
 
-		/**********
-		* SIGNALS *
-		**********/
-
-		// Indicates that the photo at *path* has been successfully appended to the
-		// import queue.
-		// FIXME: Is *queue_length* really necessary?
-		public signal void import_request_enqueued (string path, uint queue_length);
-
-		// Indicates that the photo at *old_path* was successfully moved to
-		// *new_path*.
-		public signal void photo_imported (string old_path, string new_path);
-
 		/************
 		* OPERATION *
 		************/
@@ -70,6 +57,7 @@ namespace Snap
 			//this.photo_directory = GLib.Environment.get_user_special_dir (GLib.UserDirectory.PICTURES);
 			this.photo_directory = "/home/brian/photos";
 
+			this.processing_method = this.perform_import;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
@@ -77,71 +65,45 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the import queue, firing the
-		// *import_request_enqueued* signal when done.
-		public void import_photo (string path)
+		// Append the photo at *path* to the import queue, returning the request's
+		// unique ID to the client to track.
+		public uint import_photo (string path)
 		{
-			if (this.request_queue == null)
-			{
-				this.request_queue = new GLib.AsyncQueue<string> ();
-			}
+			Request req = new Request ();
+			GLib.Value path_val = GLib.Value (GLib.Type.from_name ("string"));
 
-			this.request_queue.push (path);
+			path_val.set_string (path);
+			req.arguments.append (path_val);
 
-			// Signal that the import request has been handled.
-			import_request_enqueued (path, this.request_queue.length ());
+			uint request_id = this.add_request_to_queue (req);
 
-			debug ("Enqueued request to import '%s'!", path);
-
-			if (this.worker_thread == null)
-			{
-				try
-				{
-					this.worker_thread = GLib.Thread.create (this.import_photos_in_queue, true);
-				}
-
-				catch (GLib.ThreadError e)
-				{
-					critical ("Error creating a new thread: %s", e.message);
-				}
-			}
+			debug ("Enqueued request to import '%s' (%u)!", path, request_id);
+			return request_id;
 		}
 
 		// Perform the actual import of items in the queue.
-		private void* import_photos_in_queue ()
+		private bool perform_import (Request req)
 		{
-			if (this.request_queue.length () > 0)
+			string path = req.arguments.nth_data (0).get_string ();
+
+			try
 			{
-				do
+				string new_path = this.make_new_path (path);
+				bool success = this.move_photo (path, new_path);
+
+				if (success)
 				{
-					string path = this.request_queue.pop ();
-
-					// FIXME: Perhaps combine all of this into a single generic call to
-					//        perform_import (), to make this more like DeleteDaemon and
-					//        RotateDaemon, and to simplify pushing more into the base class
-					//        at a later date.
-					try
-					{
-						string new_path = this.make_new_path (path);
-						bool success = this.move_photo (path, new_path);
-
-						if (success)
-						{
-							// Signal that the photo has been successfully imported.
-							this.photo_imported (path, new_path);
-							debug ("Successfully imported file at '%s' -> '%s'!", path, new_path);
-						}
-					}
-
-					catch (Snap.ImportError e)
-					{
-						critical ("Error making a new path from '%s': %s", path, e.message);
-					}
-				} while (this.request_queue.length () > 0);
+					debug ("Successfully imported file at '%s' -> '%s'!", path, new_path);
+					return true;
+				}
 			}
 
-			this.worker_thread = null;
-			return ((void*) 0);
+			catch (Snap.ImportError e)
+			{
+				critical ("Error making a new path from '%s': %s", path, e.message);
+			}
+
+			return false;
 		}
 
 		// FIXME: Look into using libexif or some other library to do this without

@@ -32,39 +32,12 @@ namespace Snap
 		EXIV2
 	}
 
-	public class TagRequest : GLib.Object
-	{
-		public string path;
-		public string verb;
-		public string tag;
-
-		public TagRequest (string path, string verb, string tag)
-		{
-			this.path = path;
-			this.verb = verb;
-			this.tag = tag;
-		}
-	}
-
 	[DBus (name = "org.washedup.Snap.TagDaemon")]
 	public class TagDaemon : Daemon
 	{
 		private string dbus_object_name = "org.washedup.Snap.TagDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/TagDaemon";
 
-		private new GLib.AsyncQueue<TagRequest> request_queue;
-
-		/**********
-		* SIGNALS *
-		**********/
-
-		// Indicates that the photo at *path* has been successfully appended to the
-		// tag queue.
-		// FIXME: Is *queue_length* really necessary?
-		public signal void tag_request_enqueued (string path, uint queue_length);
-
-		// Indicates that the photo at *path* was successfully tagged.
-		public signal void photo_tagged (string path, string tag);
 
 		/************
 		* OPERATION *
@@ -72,6 +45,7 @@ namespace Snap
 
 		public TagDaemon (string[] args)
 		{
+			this.processing_method = this.perform_tagging;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
@@ -79,100 +53,71 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the tag queue, firing the
-		// *tag_request_enqueued* signal when done.
-		public void tag_photo (string path, string tag)
+		// Append the photo at *path* to the tag queue, returning the request's
+		// unique ID to the client to track;
+		public uint tag_photo (string path, string tag)
 		{
-			if (this.request_queue == null)
-			{
-				this.request_queue = new GLib.AsyncQueue<TagRequest> ();
-			}
+			Request req = new Request ();
+			GLib.Value path_val = GLib.Value (typeof (string));
+			GLib.Value verb_val = GLib.Value (typeof (string));
+			GLib.Value tag_val = GLib.Value (typeof (string));
 
-			this.request_queue.push (new TagRequest (path, "add", tag));
+			path_val.set_string (path);
+			verb_val.set_string ("add");
+			tag_val.set_string (tag);
+			req.arguments.append (path_val);
+			req.arguments.append (verb_val);
+			req.arguments.append (tag_val);
 
-			// Signal that the tag request has been handled.
-			tag_request_enqueued (path, this.request_queue.length ());
+			uint request_id = this.add_request_to_queue (req);
 
 			debug ("Enqueued request to tag '%s' with '%s'!", path, tag);
-
-			if (this.worker_thread == null)
-			{
-				try
-				{
-					this.worker_thread = GLib.Thread.create (this.tag_photos_in_queue, true);
-				}
-
-				catch (GLib.ThreadError e)
-				{
-					critical ("Error creating a new thread: %s", e.message);
-				}
-			}
+			return request_id;
 		}
 
-		// Append the photo at *path* to the tag queue, firing the
-		// *tag_request_enqueued* signal when done.
-		public void untag_photo (string path, string tag)
+		// Append the photo at *path* to the tag queue, returning the request's
+		// unique ID to the client to track;
+		public uint untag_photo (string path, string tag)
 		{
-			if (this.request_queue == null)
-			{
-				this.request_queue = new GLib.AsyncQueue<TagRequest> ();
-			}
+			Request req = new Request ();
+			GLib.Value path_val = GLib.Value (typeof (string));
+			GLib.Value verb_val = GLib.Value (typeof (string));
+			GLib.Value tag_val = GLib.Value (typeof (string));
 
-			this.request_queue.push (new TagRequest (path, "del", tag));
+			path_val.set_string (path);
+			verb_val.set_string ("del");
+			tag_val.set_string (tag);
+			req.arguments.append (path_val);
+			req.arguments.append (verb_val);
+			req.arguments.append (tag_val);
 
-			// Signal that the tag request has been handled.
-			tag_request_enqueued (path, this.request_queue.length ());
+			uint request_id = this.add_request_to_queue (req);
 
-			debug ("Enqueued request to remove tag '%s' from '%s'!", tag, path);
-
-			if (this.worker_thread == null)
-			{
-				try
-				{
-					this.worker_thread = GLib.Thread.create (this.tag_photos_in_queue, true);
-				}
-
-				catch (GLib.ThreadError e)
-				{
-					critical ("Error creating a new thread: %s", e.message);
-				}
-			}
+			debug ("Enqueued request to remove the tag '%s' from '%s'!", tag, path);
+			return request_id;
 		}
 
-		// Perform the actual handling of items in the queue.
-		private void* tag_photos_in_queue ()
+		private bool perform_tagging (Request req) throws GLib.Error
 		{
-			if (this.request_queue.length () > 0)
+			string path = req.arguments.nth_data (0).get_string ();
+			string verb = req.arguments.nth_data (1).get_string ();
+			string tag = req.arguments.nth_data (2).get_string ();
+			bool success = false;
+
+			switch (verb)
 			{
-				do
-				{
-					TagRequest req = this.request_queue.pop ();
-					bool success = false;
-
-					switch (req.verb)
-					{
-						case "add":
-							success = this.add_tag (req.path, req.tag);
-							break;
-						case "del":
-							success = this.remove_tag (req.path, req.tag);
-							break;
-						default:
-							critical ("Error processing verb: '%s' invalid", req.verb);
-							break;
-					}
-
-					if (success)
-					{
-						// Signal that the photo has been successfully tagged.
-						this.photo_tagged (req.path, req.tag);
-						debug ("Successfully tagged '%s' with '%s'!", req.path, req.tag);
-					}
-				} while (this.request_queue.length () > 0);
+				case "add":
+					success = this.add_tag (path, tag);
+					break;
+				case "del":
+					success = this.remove_tag (path, tag);
+					break;
+				default:
+					critical ("Error processing verb: '%s' invalid", verb);
+					break;
 			}
 
-			this.worker_thread = null;
-			return ((void*) 0);
+			return success;
 		}
 
 		private bool add_tag (string path, string tag)

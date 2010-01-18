@@ -1,35 +1,3 @@
-API
-===
-
-  Global Methods:
-
-  * list_tags () => tags
-  * create_tag (tag) => bool
-  * delete_tag (tag) => bool
-  * rename_tag (tag, new_tag) => bool
-  * import_directory (path) => bool (necessary?)
-  * import_photo (path) => bool
-  * search (tags_or_attributes_or_a_date_range) => paths
-
-  Photo Methods:
-
-  * get_tags (path) => tags
-  * add_tag (path, tag) => bool
-  * remove_tag (path, tag) => bool
-  * has_hi_res (path) => bool
-  * rotate_photo (path, degrees) => bool
-  * delete_photo (path) => bool
-  * add_attribute (path, key, value) => true
-  * get_attributes (path) => attributes
-
-  Signals:
-
-  * imported_photo (old_path, new_path)
-  * rotated_photo (path, degrees)
-  * deleted_photo (path)
-  * added_tag (tag, path)
-  * removed_tag (tag, path)
-
 System Design
 =============
 
@@ -37,12 +5,113 @@ Long-running processes get their own daemons, which are launched by DBus call
 when needed and then go away (ideally, they'd hang around for a minute or so
 just to cut down on churn and reduce startup costs).
 
+The daemons all derive from a single base class, which looks like this:
+
+  Daemon
+  ------
+
+  This daemon provides basic request-handling, queue processing, and signal
+  emitting capabilities. Derivative daemons override a few methods to provide
+  their own functionality.
+
+  Methods:
+    * start_dbus_service (string object_name, string object_path) => void
+    * add_request_to_queue (Request req) => int request_id
+    * process_queue (bool process_method) => void
+    * exit_if_inactive () => bool is_active
+    * quit () => void
+
+  Signals:
+    * request_succeeded (int request_id)
+    * request_failed (int request_id)
+
 These daemons include:
 
-  * import daemon - handles requests to import photos into the photo directory
-                    using the proper naming scheme
-  * rotate daemon - handles requests to rotate photos
-  * delete daemon - handles requests to delete photos
-  * tag daemon    - handles requests to add or remove tags to/from photos (this
-                    may also explicitly call Tracker.Metadata.Set for some
-		    attributes, like Image:Keywords, Image.Copyright, etc)
+  Import Daemon
+  -------------
+
+  This daemon handles requests to import photos into the photo directory using
+  the proper naming scheme.
+
+  Methods:
+    * import (string[] paths) => int[] request_ids
+
+  Rotate Daemon
+  -------------
+
+  This daemon handles requests to rotate photos in increments of 90 degrees.
+
+  Methods:
+    * rotate (string[] paths, int degrees) => int[] request_ids
+
+  Delete Daemon
+  -------------
+
+  This daemon handles requests to delete photos.
+
+  Methods:
+    * delete (string[] paths) => int[] request_ids
+
+
+  Tag Daemon
+  ----------
+
+  This daemon handles requests to add, remove, alter, or fetch tags to/from
+  photos.
+
+  Methods:
+    * add_tag (string[] paths, string tag) => int[] request_ids
+    * remove_tag (string[] paths, string tag) => int[] request_ids
+    * get_tags (string path) => string[] tags
+
+  Metadata Daemon
+  ---------------
+
+  This daemon handles requests to add, remove, alter, or fetch metadata to/from
+  photos. This will also explicitly call Tracker.Metadata.Set() for some
+  attributes, like Image:Keywords, Image:Copyright, etc.
+
+  Methods:
+    * add_attribute (string[] paths, string key, string value) => int[] request_ids
+    * get_attributes (string path) => string[] attributes
+
+  Settings Daemon
+  ---------------
+  This daemon manages the user settings. This might just be daemon overkill at
+  this point, but hey... why not? It might just be better to use GConf or some
+  such technology directly instead of having a proxy.
+
+  Methods:
+    * create_tag (string tag) => bool
+    * delete_tag (string tag) => bool
+    * rename_tag (string old_tag, string new_tag) => bool
+    * list_tags () => string[] tags
+    * get_photo_directory () => string photo_directory
+    * get_default (string key) => string value
+
+  Search Daemon
+  -------------
+  This daemon handles requests to search through the image database, using a
+  basic syntax for filtering by date, metadata, and (eventually) location.
+
+  NOTE: Investigate synchronous vs. asynchronous searching.
+
+  Methods:
+    * search (string tags_or_attributes_or_a_date_range) => string[] paths
+
+    OR
+
+    * search (string tags_or_attributes_or_a_date_range) => int request_id
+
+  Signals:
+    * search_result_returned (int request_id, string path)
+
+  Miscellaneous
+  -------------
+  Some more necessary methods. These might not necessitate a dedicated daemon,
+  but they will need to be supported somewhere (probably within the Snap client
+  itself).
+
+  Methods:
+    * get_raw (string jpg_path) => string raw_path
+    * get_thumb (string jpg_path) => string thumb_path

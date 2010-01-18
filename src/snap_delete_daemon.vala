@@ -32,24 +32,13 @@ namespace Snap
 		private string dbus_object_name = "org.washedup.Snap.DeleteDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/DeleteDaemon";
 
-		/**********
-		* SIGNALS *
-		**********/
-
-		// Indicates that the photo at *path* has been successfully appended to the
-		// delete queue.
-		// FIXME: Is *queue_length* really necessary?
-		public signal void delete_request_enqueued (string path, uint queue_length);
-
-		// Indicates that the photo at *path* was successfully deleted.
-		public signal void photo_deleted (string path);
-
 		/************
 		* OPERATION *
 		************/
 
 		public DeleteDaemon (string[] args)
 		{
+			this.processing_method = this.perform_deletion;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
 
@@ -57,65 +46,29 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the delete queue, firing the
-		// *delete_request_enqueued* signal when done.
-		public void delete_photo (string path)
+		// Append the photo at *path* to the delete queue, returning the request's
+		// unique ID to the client to track.
+		public uint delete_photo (string path)
 		{
-			if (this.request_queue == null)
-			{
-				this.request_queue = new GLib.AsyncQueue<string> ();
-			}
+			Request req = new Request ();
+			GLib.Value path_val = GLib.Value (typeof (string));
 
-			this.request_queue.push (path);
+			path_val.set_string (path);
+			req.arguments.append (path_val);
 
-			debug ("Got request to delete '%s'", path);
-
-			// Signal that the delete request has been handled.
-			delete_request_enqueued (path, this.request_queue.length ());
+			uint request_id = this.add_request_to_queue (req);
 
 			debug ("Enqueued request to delete '%s'!", path);
-
-			if (this.worker_thread == null)
-			{
-				try
-				{
-					this.worker_thread = GLib.Thread.create (this.delete_photos_in_queue, true);
-				}
-
-				catch (GLib.ThreadError e)
-				{
-					critical ("Error creating a new thread: %s", e.message);
-				}
-			}
+			return request_id;
 		}
 
-		// Perform the actual deletion of items in the queue.
-		private void* delete_photos_in_queue ()
+		private bool perform_deletion (Request req)
 		{
-			if (this.request_queue.length () > 0)
-			{
-				do
-				{
-					string path = this.request_queue.pop ();
-					bool success = this.perform_deletion (path);
-
-					if (success)
-					{
-						// Signal that the photo has been successfully deleted.
-						this.photo_deleted (path);
-						debug ("Successfully deleted '%s'!", path);
-					}
-				} while (this.request_queue.length () > 0);
-			}
-
-			this.worker_thread = null;
-			return ((void*) 0);
-		}
-
-		private bool perform_deletion (string path)
-		{
+			string path = req.arguments.nth_data (0).get_string ();
 			int success = GLib.FileUtils.remove (path);
 
+			// FIXME: Consider making this an exception that the caller catches (that
+			//        way the cause of the error also reaches the client).
 			if (success < 0)
 			{
 				critical ("Error deleting photo at '%s' (return code: %d)", path, success);
