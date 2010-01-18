@@ -52,19 +52,21 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the rotate queue, returning the request's
-		// unique ID to the client to track.
-		public uint rotate_photo (string path, int degrees)
+		public uint[] rotate (string[] paths, int degrees)
 		{
-			Request req = new Request ();
+			uint[] request_ids = new uint[paths.length];
 
-			req.append_string (path);
-			req.append_int (degrees);
+			for (int i = 0; i < paths.length; ++i)
+			{
+				Request req = new Request ();
 
-			uint request_id = this.add_request_to_queue (req);
+				req.append_string (paths[i]);
+				req.append_int (degrees);
 
-			debug ("Enqueued request to rotate '%s' %d degrees (%u)!", path, degrees, request_id);
-			return request_id;
+				request_ids[i] = this.add_request_to_queue (req);
+			}
+
+			return request_ids;
 		}
 
 		private bool perform_rotation (Request req) throws RotateError

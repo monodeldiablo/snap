@@ -46,18 +46,19 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the delete queue, returning the request's
-		// unique ID to the client to track.
-		public uint delete_photo (string path)
+		public uint[] delete (string[] paths)
 		{
-			Request req = new Request ();
+			uint[] request_ids = new uint[paths.length];
 
-			req.append_string (path);
+			for (int i = 0; i < paths.length; ++i)
+			{
+				Request req = new Request ();
 
-			uint request_id = this.add_request_to_queue (req);
+				req.append_string (paths[i]);
+				request_ids[i] = this.add_request_to_queue (req);
+			}
 
-			debug ("Enqueued request to delete '%s'!", path);
-			return request_id;
+			return request_ids;
 		}
 
 		private bool perform_deletion (Request req)

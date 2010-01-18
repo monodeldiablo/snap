@@ -65,22 +65,23 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the import queue, returning the request's
-		// unique ID to the client to track.
-		public uint import_photo (string path)
+		public uint[] import (string[] paths)
 		{
-			Request req = new Request ();
+			uint[] request_ids = new uint[paths.length];
 
-			req.append_string (path);
+			for (int i = 0; i < paths.length; ++i)
+			{
+				Request req = new Request ();
 
-			uint request_id = this.add_request_to_queue (req);
+				req.append_string (paths[i]);
+				request_ids[i] = this.add_request_to_queue (req);
+			}
 
-			debug ("Enqueued request to import '%s' (%u)!", path, request_id);
-			return request_id;
+			return request_ids;
 		}
 
 		// Perform the actual import of items in the queue.
-		private bool perform_import (Request req)
+		private bool perform_import (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
 

@@ -53,36 +53,40 @@ namespace Snap
 		* METHODS *
 		**********/
 
-		// Append the photo at *path* to the tag queue, returning the request's
-		// unique ID to the client to track;
-		public uint tag_photo (string path, string tag)
+		public uint[] tag (string[] paths, string tag)
 		{
-			Request req = new Request ();
+			uint[] request_ids = new uint[paths.length];
 
-			req.append_string (path);
-			req.append_string ("add");
-			req.append_string (tag);
+			for (int i = 0; i < paths.length; i++)
+			{
+				Request req = new Request ();
 
-			uint request_id = this.add_request_to_queue (req);
+				req.append_string (paths[i]);
+				req.append_string ("add");
+				req.append_string (tag);
 
-			debug ("Enqueued request to tag '%s' with '%s'!", path, tag);
-			return request_id;
+				request_ids[i] = this.add_request_to_queue (req);
+			}
+
+			return request_ids;
 		}
 
-		// Append the photo at *path* to the tag queue, returning the request's
-		// unique ID to the client to track;
-		public uint untag_photo (string path, string tag)
+		public uint[] untag (string[] paths, string tag)
 		{
-			Request req = new Request ();
+			uint[] request_ids = new uint[paths.length];
 
-			req.append_string (path);
-			req.append_string ("del");
-			req.append_string (tag);
+			for (int i = 0; i < paths.length; i++)
+			{
+				Request req = new Request ();
 
-			uint request_id = this.add_request_to_queue (req);
+				req.append_string (paths[i]);
+				req.append_string ("del");
+				req.append_string (tag);
 
-			debug ("Enqueued request to remove the tag '%s' from '%s'!", tag, path);
-			return request_id;
+				request_ids[i] = this.add_request_to_queue (req);
+			}
+
+			return request_ids;
 		}
 
 		private bool perform_tagging (Request req) throws GLib.Error

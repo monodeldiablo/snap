@@ -29,19 +29,8 @@ v0.1.0
   * "delete" moves to a "trash" directory, which can be purged periodically or
     browsed and reinstated (via the import API!)
 * implement duplicate checking in the import daemon!
-* consider making the methods more batch-oriented (e.g. tag_photo ->
-  tag_photos)
-  * one call instead of many (less traffic on the bus)
-  * the implementation doesn't change much (just loop over the input and
-    enqueue)
-  * easier for the client to account for progress (e.g. "123 of 3712 complete",
-    where 3712 doesn't vary, as it will with the current approach)
-  * semantics are less clear, though, for rotate (rotate all photos by the same
-    angle?, have a matching array of angles? if the latter, how often will that
-    be used?)
-* decide whether queue processes should throw exceptions or just return false
-* implement some sort of "request failed" signal to emit when shit hits the fan
-  (this could capture exceptions and emit, addressing the question above, too)
+* investigate whether there's a maximum argument length for DBus (batch calls
+  could get huge)
 * implement logging!
   * in the daemon base class
   * in the user's data dir
