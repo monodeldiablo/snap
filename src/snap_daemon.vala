@@ -28,20 +28,6 @@ using DBus;
 
 namespace Snap
 {
-	// This is the request class, which holds the various arguments submitted in a
-	// given daemon request. Request objects are harvested from the request queue
-	// by the processing method, whose implementation varies by daemon.
-	public class Request : GLib.Object
-	{
-		public GLib.List<GLib.Value?> arguments;
-		public uint request_id;
-
-		public Request ()
-		{
-			this.arguments = new GLib.List<GLib.Value?> ();
-		}
-	}
-
 	// This is the signature for methods that process items in the request queue.
 	public delegate bool ProcessingMethod (Request req) throws GLib.Error;
 

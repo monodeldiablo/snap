@@ -58,16 +58,10 @@ namespace Snap
 		public uint tag_photo (string path, string tag)
 		{
 			Request req = new Request ();
-			GLib.Value path_val = GLib.Value (typeof (string));
-			GLib.Value verb_val = GLib.Value (typeof (string));
-			GLib.Value tag_val = GLib.Value (typeof (string));
 
-			path_val.set_string (path);
-			verb_val.set_string ("add");
-			tag_val.set_string (tag);
-			req.arguments.append (path_val);
-			req.arguments.append (verb_val);
-			req.arguments.append (tag_val);
+			req.append_string (path);
+			req.append_string ("add");
+			req.append_string (tag);
 
 			uint request_id = this.add_request_to_queue (req);
 
@@ -80,16 +74,10 @@ namespace Snap
 		public uint untag_photo (string path, string tag)
 		{
 			Request req = new Request ();
-			GLib.Value path_val = GLib.Value (typeof (string));
-			GLib.Value verb_val = GLib.Value (typeof (string));
-			GLib.Value tag_val = GLib.Value (typeof (string));
 
-			path_val.set_string (path);
-			verb_val.set_string ("del");
-			tag_val.set_string (tag);
-			req.arguments.append (path_val);
-			req.arguments.append (verb_val);
-			req.arguments.append (tag_val);
+			req.append_string (path);
+			req.append_string ("del");
+			req.append_string (tag);
 
 			uint request_id = this.add_request_to_queue (req);
 
@@ -99,9 +87,9 @@ namespace Snap
 
 		private bool perform_tagging (Request req) throws GLib.Error
 		{
-			string path = req.arguments.nth_data (0).get_string ();
-			string verb = req.arguments.nth_data (1).get_string ();
-			string tag = req.arguments.nth_data (2).get_string ();
+			string path = req.get_string (0);
+			string verb = req.get_string (1);
+			string tag = req.get_string (2);
 			bool success = false;
 
 			switch (verb)

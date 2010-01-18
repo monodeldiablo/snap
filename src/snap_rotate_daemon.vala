@@ -57,13 +57,9 @@ namespace Snap
 		public uint rotate_photo (string path, int degrees)
 		{
 			Request req = new Request ();
-			GLib.Value path_val = GLib.Value (typeof (string));
-			GLib.Value degrees_val = GLib.Value (typeof (int));
 
-			path_val.set_string (path);
-			degrees_val.set_int (degrees);
-			req.arguments.append (path_val);
-			req.arguments.append (degrees_val);
+			req.append_string (path);
+			req.append_int (degrees);
 
 			uint request_id = this.add_request_to_queue (req);
 
@@ -73,8 +69,8 @@ namespace Snap
 
 		private bool perform_rotation (Request req) throws RotateError
 		{
-			string path = req.arguments.nth_data (0).get_string ();
-			int degrees = (int) req.arguments.nth_data (1).get_int ();
+			string path = req.get_string (0);
+			int degrees = req.get_int (1);
 			string command = "mogrify -rotate %d %s".printf (degrees, path);
 			string stdout;
 			string stderr;

@@ -70,10 +70,8 @@ namespace Snap
 		public uint import_photo (string path)
 		{
 			Request req = new Request ();
-			GLib.Value path_val = GLib.Value (GLib.Type.from_name ("string"));
 
-			path_val.set_string (path);
-			req.arguments.append (path_val);
+			req.append_string (path);
 
 			uint request_id = this.add_request_to_queue (req);
 
@@ -84,7 +82,7 @@ namespace Snap
 		// Perform the actual import of items in the queue.
 		private bool perform_import (Request req)
 		{
-			string path = req.arguments.nth_data (0).get_string ();
+			string path = req.get_string (0);
 
 			try
 			{
