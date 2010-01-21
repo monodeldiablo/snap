@@ -97,7 +97,7 @@ namespace Snap
 
 			if (read_tags.clean && match.matches ())
 			{
-				tags = match.fetch_named ("tags").split (" ");
+				tags = match.fetch_named ("tags").split (", ");
 			}
 
 			else
