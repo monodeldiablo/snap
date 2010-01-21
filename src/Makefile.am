@@ -25,6 +25,7 @@ snap_import_daemon_SOURCES = \
 	snap_import_daemon.vala \
 	snap_daemon.vala \
 	snap_request.vala \
+	snap_invocation.vala \
 	$(NULL)
 
 snap_import_daemon_LDADD = \
@@ -35,6 +36,7 @@ snap_rotate_daemon_SOURCES = \
 	snap_rotate_daemon.vala \
 	snap_daemon.vala \
 	snap_request.vala \
+	snap_invocation.vala \
 	$(NULL)
 
 snap_rotate_daemon_LDADD = \
@@ -45,6 +47,7 @@ snap_tag_daemon_SOURCES = \
 	snap_tag_daemon.vala \
 	snap_daemon.vala \
 	snap_request.vala \
+	snap_invocation.vala \
 	$(NULL)
 
 snap_tag_daemon_LDADD = \
