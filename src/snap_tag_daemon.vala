@@ -89,6 +89,25 @@ namespace Snap
 			return request_ids;
 		}
 
+		public string[] get_tags (string path)
+		{
+			Invocation read_tags = new Invocation("exiv2 -Pkv %s".printf (path));
+			GLib.MatchInfo match = read_tags.scan ("Xmp.dc.subject\\s+(?<tags>.*)");
+			string[] tags;
+
+			if (read_tags.clean && match.matches ())
+			{
+				tags = match.fetch_named ("tags").split (" ");
+			}
+
+			else
+			{
+				tags = new string[0];
+			}
+
+			return tags;
+		}
+
 		private bool perform_tagging (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
@@ -114,64 +133,53 @@ namespace Snap
 
 		private bool add_tag (string path, string tag)
 		{
-			string command = "exiv2 -kM \"add Iptc.Application2.Keywords '%s'\" %s".printf (tag, path);
-			string stdout;
-			string stderr;
-			int success;
+			string[] tags = this.get_tags (path);
 
-			try
+			foreach (string keyword in tags)
 			{
-				GLib.Process.spawn_command_line_sync (command,
-				                                      out stdout,
-								      out stderr,
-								      out success);
+				if (tag.down () == keyword)
+				{
+					return false;
+				}
 			}
 
-			catch (SpawnError e)
-			{
-				//throw new TagError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
-				critical ("Error spawning '%s': %s", command, e.message);
-				return false;
-			}
+			tags += tag.down ();
 
-			if (success < 0)
-			{
-				//throw new TagError.EXIV2 ("Error tagging photo at '%s' (return code: %d)".printf (path, success));
-				critical ("Error tagging photo at '%s' (return code: %d)", path, success);
-				return false;
-			}
-
-			return true;
+			return write_tags (path, tags);
 		}
 
-		// FIXME: Make this work! As it is, this is terribly broken, nuking any and
-		//        all tags the photo has ever received. DANGER!
 		private bool remove_tag (string path, string tag)
 		{
-			string command = "exiv2 -kM \"del Iptc.Application2.Keywords '%s'\" %s".printf (tag, path);
-			string stdout;
-			string stderr;
-			int success;
+			string[] tags = this.get_tags (path);
+			string[] new_tags = new string[0];
 
-			try
+			for (int i = 0; i < tags.length; i++)
 			{
-				GLib.Process.spawn_command_line_sync (command,
-				                                      out stdout,
-								      out stderr,
-								      out success);
+				if (tag.down () != tags[i])
+				{
+					new_tags += tags[i];
+				}
 			}
 
-			catch (SpawnError e)
+			return write_tags (path, new_tags);
+		}
+
+		private bool write_tags (string path, string[] tags)
+		{
+			string keywords = string.joinv (", ", tags);
+			Invocation write_tags = new Invocation("exiv2 -kM \"add Xmp.dc.subject '%s'\" %s".printf (keywords, path));
+
+			if (!write_tags.clean)
 			{
-				//throw new TagError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
-				critical ("Error spawning '%s': %s", command, e.message);
+				//throw new TagError.SPAWN ("Error spawning '%s': %s".printf (write_tags.command, write_tags.error));
+				critical ("Error spawning '%s': %s", write_tags.command, write_tags.error);
 				return false;
 			}
 
-			if (success < 0)
+			if (write_tags.return_value < 0)
 			{
-				//throw new TagError.EXIV2 ("Error tagging photo at '%s' (return code: %d)".printf (path, success));
-				critical ("Error tagging photo at '%s' (return code: %d)", path, success);
+				//throw new TagError.EXIV2 ("Error tagging photo at '%s' (return code: %d)".printf (path, write_tags.return_value));
+				critical ("Error tagging photo at '%s' (return code: %d)", path, write_tags.return_value);
 				return false;
 			}
 
