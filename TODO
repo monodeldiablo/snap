@@ -1,9 +1,14 @@
 v0.1.0
 ------
+* decide if daemons should be handed full paths or "ideal" paths (e.g.
+  '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
+  or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
 * finish the basic tag daemon
 * expose request processing signals to DBus somehow...
 * make the GLib.Value stuff prettier (or find a shortcut in Vala's docs)
 * design a metadata daemon, too
+  * the tag daemon could just proxy to this, or this might eliminate the tag
+    daemon altogether
   * ideally, it should be able to modify any valid metadata key
   * more realistically, it could have translation and amplification for common
     keys
@@ -16,13 +21,17 @@ v0.1.0
     implementation and removing the need to keep lots of different sets of
     metadata in sync
     * this means I could just use exempi, I do believe...
+    * the other upside is that Tracker already indexes these (Xmp.dc.creator,
+      Xmp.dc.subject)
 * use GConf for settings (stick it into Daemon base class)
   * photo directory
   * seconds for daemons to hang around
-  * Exif.Author default
-  * Iptc.Contact default
-  * Exif.Copyright default (maybe with string interpolation, e.g. "Copyright © %Y
-    Marijana Surkovic. All rights reserved.")
+  * artist default
+  * copyright default
+    * maybe with string interpolation, e.g. "Copyright © %Y %artist%.
+      All rights reserved."
+    * or maybe just have a drop-down selection of common ones (CC, etc.) and do
+      the above string interpolation automagically...
 * moves and deletes are scary (terrifying, actually!)... consider copies and
   moves, respectively, instead
   * "move" just copies from the source to the dest
