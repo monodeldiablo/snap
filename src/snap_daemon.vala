@@ -62,6 +62,7 @@ namespace Snap
 		// Set the daemon's timeout for 60 seconds, so that it exits after a minute
 		// of inactivity.
 		public uint timeout_usec = 60000;
+		public uint timeout_id;
 
 		/**********
 		* SIGNALS *
@@ -108,7 +109,7 @@ namespace Snap
 					debug ("Successfully registered DBus service!");
 
 					// Add a timeout to check if this is active every n seconds.
-					GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
+					this.timeout_id = GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
 
 					this.mainloop.run ();
 				}
@@ -169,6 +170,9 @@ namespace Snap
 				}
 			}
 
+			// Restart the timer.
+			this.restart_timer ();
+
 			// Return the request's ID to the caller.
 			return req.request_id;
 		}
@@ -208,6 +212,13 @@ namespace Snap
 			this.worker_thread = null;
 
 			return ((void*) 0);
+		}
+
+		// Restart the timer.
+		public void restart_timer ()
+		{
+			GLib.Source.remove (timeout_id);
+			this.timeout_id = GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
 		}
 
 		// Tear down the application.

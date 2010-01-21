@@ -105,6 +105,9 @@ namespace Snap
 				tags = new string[0];
 			}
 
+			// Restart the timer to go for another N seconds.
+			this.restart_timer ();
+
 			return tags;
 		}
 
