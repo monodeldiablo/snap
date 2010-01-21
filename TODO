@@ -1,10 +1,13 @@
 v0.1.0
 ------
+* expose request processing signals to DBus somehow...
+* implement smarter timeouts in the Daemon base class
+  * have requests touch a last_request variable that tracks the timestamp of
+    the last request, so that daemons die N seconds after that request, not
+    after the last timeout, if the queue is empty
 * decide if daemons should be handed full paths or "ideal" paths (e.g.
   '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
   or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
-* finish the basic tag daemon
-* expose request processing signals to DBus somehow...
 * make the GLib.Value stuff prettier (or find a shortcut in Vala's docs)
 * design a metadata daemon, too
   * the tag daemon could just proxy to this, or this might eliminate the tag
@@ -22,7 +25,7 @@ v0.1.0
     metadata in sync
     * this means I could just use exempi, I do believe...
     * the other upside is that Tracker already indexes these (Xmp.dc.creator,
-      Xmp.dc.subject)
+      Xmp.dc.subject) and exempi as already an optional dependency for Nautilus
 * use GConf for settings (stick it into Daemon base class)
   * photo directory
   * seconds for daemons to hang around
@@ -38,6 +41,8 @@ v0.1.0
   * "delete" moves to a "trash" directory, which can be purged periodically or
     browsed and reinstated (via the import API!)
 * implement duplicate checking in the import daemon!
+* implement thumbnail extraction in the import daemon (exiv2 can just pull the
+  first image preview from any jpeg)
 * investigate whether there's a maximum argument length for DBus (batch calls
   could get huge)
 * implement logging!
