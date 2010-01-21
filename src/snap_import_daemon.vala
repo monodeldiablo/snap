@@ -137,119 +137,94 @@ namespace Snap
 				throw new Snap.ImportError.SUFFIX ("Error examining '%s': Invalid file type".printf (path));
 			}
 
-			// Next, we need to dump the EXIF data for the image.
-			string command = "exiv2 -Pkv %s".printf (path);
-			string stdout;
-			string stderr;
-			int success;
-
 			// Dump the EXIF data from eviv2 in the format "Exif.Key     Value".
-			try
+			Invocation dump_exif = new Invocation ("exiv2 -Pkv %s".printf (path));
+
+			if (!dump_exif.clean)
 			{
-				GLib.Process.spawn_command_line_sync (command,
-			        	                              out stdout,
-								      out stderr,
-								      out success);
+				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (dump_exif.command, dump_exif.error));
 			}
 
-			catch (SpawnError e)
+			if (dump_exif.return_value < 0)
 			{
-				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (command, e.message));
-			}
-
-			if (success < 0)
-			{
-				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, success));
+				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, dump_exif.return_value));
 			}
 
 			// Extract the DateTime and SubSecTime values from the EXIF dump.
-			try
+			GLib.MatchInfo datetime_match = dump_exif.scan ("Exif.Image.DateTime\\s+(?<year>\\d{4}):(?<month>\\d{2}):(?<day>\\d{2}) (?<hour>\\d{2}):(?<minute>\\d{2}):(?<second>\\d{2})");
+			GLib.MatchInfo subsecond_match = dump_exif.scan ("Exif.Photo.SubSecTime\\s+(?<subsecond>\\d{2})");
+
+			string year;
+			string month;
+			string day;
+			string hour;
+			string minute;
+			string second;
+			string subsecond;
+
+			// Some cameras don't support sub-second resolution.
+			if (subsecond_match.matches ())
 			{
-				GLib.Regex datetime_ex = new GLib.Regex ("Exif.Image.DateTime\\s+(?<year>\\d{4}):(?<month>\\d{2}):(?<day>\\d{2}) (?<hour>\\d{2}):(?<minute>\\d{2}):(?<second>\\d{2})");
-				GLib.Regex subsecond_ex = new GLib.Regex ("Exif.Photo.SubSecTime\\s+(?<subsecond>\\d{2})");
-				GLib.MatchInfo datetime_match;
-				GLib.MatchInfo subsecond_match;
-
-				string year;
-				string month;
-				string day;
-				string hour;
-				string minute;
-				string second;
-				string subsecond;
-
-				// Run the EXIF data through the regexes.
-				datetime_ex.match (stdout, 0, out datetime_match);
-				subsecond_ex.match (stdout, 0, out subsecond_match);
-
-				// Some cameras don't support sub-second resolution.
-				if (subsecond_match.matches ())
-				{
-					subsecond = subsecond_match.fetch_named ("subsecond");
-				}
-
-				else
-				{
-					subsecond = "00";
-				}
-
-				// If the datetime data didn't match, we've got problems.
-				// FIXME: If this fails, we should then try to construct a datetime using
-				//        the file's mtime or something...
-				if (datetime_match.matches ())
-				{
-					year = datetime_match.fetch_named ("year");
-					month = datetime_match.fetch_named ("month");
-					day = datetime_match.fetch_named ("day");
-					hour = datetime_match.fetch_named ("hour");
-					minute = datetime_match.fetch_named ("minute");
-					second = datetime_match.fetch_named ("second");
-				}
-
-				else
-				{
-					throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
-				}
-
-				// We determine the proper directory root within the photo directory by
-				// examining the quality of the image.
-				string quality;
-
-				if (suffix == "nef" || suffix == "NEF")
-				{
-					quality = "raw";
-				}
-				else
-				{
-					quality = "high";
-				}
-
-				// Construct the path and file names from this information. The naming
-				// convention is strict and looks like this:
-				//
-				//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
-				string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				                                   this.photo_directory,
-				                                   quality,
-								   year,
-								   month,
-								   day);
-				string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
-				                                                month,
-										day,
-										hour,
-										minute,
-										second,
-										subsecond,
-										suffix);
-
-				return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
+				subsecond = subsecond_match.fetch_named ("subsecond");
 			}
 
-			catch (GLib.RegexError e)
+			else
 			{
-				throw new Snap.ImportError.REGEX ("Error creating the regular expression to parse the EXIF data for '%s'".printf (path));
+				subsecond = "00";
 			}
+
+			// If the datetime data didn't match, we've got problems.
+			// FIXME: If this fails, we should then try to construct a datetime using
+			//        the file's mtime or something...
+			if (datetime_match.matches ())
+			{
+				year = datetime_match.fetch_named ("year");
+				month = datetime_match.fetch_named ("month");
+				day = datetime_match.fetch_named ("day");
+				hour = datetime_match.fetch_named ("hour");
+				minute = datetime_match.fetch_named ("minute");
+				second = datetime_match.fetch_named ("second");
+			}
+
+			else
+			{
+				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
+			}
+
+			// We determine the proper directory root within the photo directory by
+			// examining the quality of the image (which, in this case, is apparently
+			// a function of the file name suffix).
+			string quality;
+
+			if (suffix == "nef" || suffix == "NEF")
+			{
+				quality = "raw";
+			}
+			else
+			{
+				quality = "high";
+			}
+
+			// Construct the path and file names from this information. The naming
+			// convention is strict and looks like this:
+			//
+			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
+			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+			                                   this.photo_directory,
+			                                   quality,
+							   year,
+							   month,
+							   day);
+			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
+			                                                month,
+									day,
+									hour,
+									minute,
+									second,
+									subsecond,
+									suffix);
+
+			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
 		}
 
 		private bool move_photo (string old_path, string new_path)
