@@ -134,7 +134,7 @@ namespace Exempi {
 	[CCode (cname = "xmp_append_array_item", cheader_filename = "exempi/xmp.h")]
 	public static bool append_array_item (Exempi.Ptr xmp, string schema, string name, uint32 arrayOptions, string value, uint32 optionBits);
 	[CCode (cname = "xmp_copy", cheader_filename = "exempi/xmp.h")]
-	public static unowned Exempi.Ptr copy (Exempi.Ptr xmp);
+	public static Exempi.Ptr copy (Exempi.Ptr xmp);
 	[CCode (cname = "xmp_delete_localized_text", cheader_filename = "exempi/xmp.h")]
 	public static bool delete_localized_text (Exempi.Ptr xmp, string schema, string name, string genericLang, string specificLang);
 	[CCode (cname = "xmp_delete_property", cheader_filename = "exempi/xmp.h")]
