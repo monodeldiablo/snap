@@ -1,0 +1,12 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+VERSION=0.1.0
+
+Name: xmpl
+Description: Easy library for easier parsing of XMP metadata.
+Requires: exempi-2.0
+Version: 0.1.0
+Libs: -L${libdir} -lxmpl
+Cflags: -I${includedir}
