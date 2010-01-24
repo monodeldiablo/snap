@@ -38,7 +38,6 @@ namespace Snap
 		private string dbus_object_name = "org.washedup.Snap.TagDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/TagDaemon";
 
-
 		/************
 		* OPERATION *
 		************/

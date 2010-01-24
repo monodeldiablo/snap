@@ -1,4 +1,4 @@
-/* exempi-lite.c
+/* xmpl.c
  *
  * <insert your silly legalese here, puhleez!>
  *
@@ -10,7 +10,7 @@
  * specific rendition of the how-tos and what-fors.
  */
 
-#include "exempi-lite.h"
+#include "xmpl.h"
 
 char* xmpl_get_property (char* file, char* key)
 {

@@ -1,4 +1,4 @@
-/* exempi-lite.h
+/* xmpl.h
  *
  * This is a convenience library that wraps much of the functionality of the
  * exempi library. I wrote this for three reasons:

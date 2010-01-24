@@ -108,7 +108,7 @@ namespace Snap
 
 					debug ("Successfully registered DBus service!");
 
-					// Add a timeout to check if this is active every n seconds.
+					// Add a timeout to check if this application is active every n seconds.
 					this.timeout_id = GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
 
 					this.mainloop.run ();
