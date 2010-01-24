@@ -115,12 +115,23 @@ Implementation ideas
   * look into XMP metadata (the exempi library can be wrapped)
     * the application will look in the XMP payload to read & write tags, but
       they will need to be synched with the underlying EXIF & IPTC tags to be
-      100% portable
+      100% portable (exempi seems to do this!)
+  * when a photo is opened for editing in another application, silently copy
+    the file to <file name>_<some incrementing version number>.jpg, then launch
+    the external editor on that file
+    * spawn a daemon to watch for changes to the file
+    * edit the file's XMP data (xmpMM tags) to track the history of the file
+      (its parents, last edit, etc)
+    * use the xmpMM data to construct file histories/family trees (need good
+      graphing library!)
   * each photo has the tags embedded into its EXIF metadata
     * use Exif.Photo.UserComment for Tracker support (NO! Not anymore!)
     * use Iptc.Application2.Keywords for other application support, and because
       it's the Right Thing (call Tracker.Metadata.Set to make sure Tracker
       knows about it)
+    * naw... just use XMP (exempi) for everything: it's righter and easier
+  * for basic EXIF data, perhaps use libtiff for extraction, where exempi might
+    be insufficient
   * look into libopenraw for NEF support
   * for unified EXIF/IPTC/XMP + thumbnail extraction, exiv2 sounds perfect (but
     it's in C++... which blows)
