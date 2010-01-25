@@ -1,9 +1,9 @@
 v0.1.0
 ------
-* integrate xmpl into the build system
 * remove (where appropriate) the reliance on exiv2 in favor of xmpl (and maybe
   libtiff for some EXIF bits).
 * expose request processing signals to DBus somehow...
+  * include the preference signal ^
 * decide if daemons should be handed full paths or "ideal" paths (e.g.
   '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
   or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
@@ -34,6 +34,12 @@ v0.1.0
       All rights reserved."
     * or maybe just have a drop-down selection of common ones (CC, etc.) and do
       the above string interpolation automagically...
+  * figure out a nice way to handle missing/bad preferences
+    * emit a preference_invalid signal that's handled by a listening process
+      (yet another daemon?!), perhaps called preferences_daemon, which is kept
+      alive for as long as other daemons are working or the front end is going
+      * better yet, just launch it on demand like other daemons and have it
+        live for X seconds before dying of unuse :(
 * moves and deletes are scary (terrifying, actually!)... consider copies and
   moves, respectively, instead
   * "move" just copies from the source to the dest

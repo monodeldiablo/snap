@@ -12,6 +12,11 @@ AM_VALAFLAGS = \
 	--pkg dbus-glib-1 \
 	--pkg gconf-2.0 \
 	--pkg posix \
+	--pkg xmpl \
+	$(NULL)
+
+lib_LTLIBRARIES = \
+	libxmpl.la \
 	$(NULL)
 
 bin_PROGRAMS = \
@@ -19,6 +24,20 @@ bin_PROGRAMS = \
 	snap-rotate-daemon \
 	snap-tag-daemon \
 	snap-delete-daemon \
+	$(NULL)
+
+libxmpl_la_SOURCES = \
+	xmpl.h \
+	xmpl.c \
+	$(NULL)
+
+libxmpl_la_CFLAGS = \
+	`pkg-config --cflags exempi-2.0` \
+	`pkg-config --libs exempi-2.0` \
+	$(NULL)
+
+libxmpl_la_LDFLAGS = \
+	-shared \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \
