@@ -34,7 +34,8 @@ namespace Snap
 		SUFFIX,
 		SPAWN,
 		EXIV2,
-		REGEX
+		REGEX,
+		INVALID_PREFERENCE
 	}
 
 	[DBus (name = "org.washedup.Snap.ImportDaemon")]
@@ -43,20 +44,12 @@ namespace Snap
 		private string dbus_object_name = "org.washedup.Snap.ImportDaemon";
 		private string dbus_object_path = "/org/washedup/Snap/ImportDaemon";
 
-		private string photo_directory;
-
 		/************
 		* OPERATION *
 		************/
 
 		public ImportDaemon (string[] args)
 		{
-			// FIXME: Install the snap.schemas file first, before you can use this.
-			//GConf.Client gconf_client = GConf.Client.get_default ();
-			//this.photo_directory = gconf_client.get_string ("/schemas/apps/snap/photo-directory");
-			//this.photo_directory = GLib.Environment.get_user_special_dir (GLib.UserDirectory.PICTURES);
-			this.photo_directory = "/home/brian/photos";
-
 			this.processing_method = this.perform_import;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 		}
@@ -209,22 +202,36 @@ namespace Snap
 			// convention is strict and looks like this:
 			//
 			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
-			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-			                                   this.photo_directory,
-			                                   quality,
-							   year,
-							   month,
-							   day);
-			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
-			                                                month,
-									day,
-									hour,
-									minute,
-									second,
-									subsecond,
-									suffix);
+			string photo_dir;
 
-			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
+			try
+			{
+				photo_dir = this.gconf_client.get_string ("/apps/snap/photo-directory");
+
+				string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				                                   photo_dir,
+				                                   quality,
+								   year,
+								   month,
+								   day);
+				string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
+				                                                month,
+										day,
+										hour,
+										minute,
+										second,
+										subsecond,
+										suffix);
+
+				return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
+			}
+
+			catch (GLib.Error e)
+			{
+				preference_not_set ("photo_directory");
+
+				throw new Snap.ImportError.INVALID_PREFERENCE ("Error fetching the 'photo-directory' setting: %s", e.message);
+			}
 		}
 
 		private bool move_photo (string old_path, string new_path)

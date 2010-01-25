@@ -64,12 +64,16 @@ namespace Snap
 		public uint timeout_usec = 60000;
 		public uint timeout_id;
 
+		// Keep settings in a common namespace and share it with all child daemons.
+		public GConf.Client gconf_client = GConf.Client.get_default ();
+
 		/**********
 		* SIGNALS *
 		**********/
 
 		public signal void request_succeeded (uint request_id);
 		public signal void request_failed (uint request_id);
+		public signal void preference_not_set (string key);
 
 		/************
 		* OPERATION *
