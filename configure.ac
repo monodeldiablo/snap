@@ -42,7 +42,8 @@ AC_SUBST(SNAP_CFLAGS)
 AC_SUBST(SNAP_LIBS)
 
 AC_CONFIG_FILES([Makefile
-        src/Makefile
+	include/Makefile
+	src/Makefile
 	data/Makefile
 	po/Makefile.in])
 

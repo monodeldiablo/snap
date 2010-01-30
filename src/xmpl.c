@@ -6,13 +6,13 @@
  * I'd love to tell you that all of this stuff is self-explanatory and all
  * that, but there's nothing intuitive about writing code and I'm in need of
  * more explaining than most. Your best bet, if you haven't been driven off
- * just yet, is to mosey on over to exempi-lite.h for a less implementation-
+ * just yet, is to mosey on over to xmpl.h for a less implementation-
  * specific rendition of the how-tos and what-fors.
  */
 
 #include "xmpl.h"
 
-char* xmpl_get_property (char* file, char* key)
+char* xmpl_get_property (char* file, char* namespace, char* key)
 {
 	if (xmp_init ())
 	{
@@ -20,28 +20,29 @@ char* xmpl_get_property (char* file, char* key)
 		XmpPtr x;
 		XmpStringPtr s;
 		XmpPropsBits p;
+		XmpDateTime d;
 		char* value = NULL;
 
 		f = xmp_files_open_new (file, XMP_OPEN_READ | XMP_OPEN_ONLYXMP);
 		x = xmp_files_get_new_xmp (f);
 
-		if (xmp_has_property (x, NS_DC, key))
+		if (xmp_has_property (x, namespace, key))
 		{
 			s = xmp_string_new ();
 
 			/* This property is a string. */
-			if (xmp_get_property (x, NS_DC, key, s, &p) && strcmp ("", xmp_string_cstr (s)) != 0)/* && XMP_IS_PROP_SIMPLE (p))*/
+			if (xmp_get_property (x, namespace, key, s, &p) && strcmp ("", xmp_string_cstr (s)) != 0)/* && XMP_IS_PROP_SIMPLE (p))*/
 			{
 				value = strdup (xmp_string_cstr (s));
 			}
 
 			/* Nope... it's an array. */
-			else if (xmp_get_array_item (x, NS_DC, key, 1, s, &p))/* && XMP_IS_PROP_ARRAY (p))*/
+			else if (xmp_get_array_item (x, namespace, key, 1, s, &p))/* && XMP_IS_PROP_ARRAY (p))*/
 			{
 				int i = 2;
 				value = strdup (xmp_string_cstr (s));
 
-				for (; xmp_get_array_item (x, NS_DC, key, i, s, NULL); i++)
+				for (; xmp_get_array_item (x, namespace, key, i, s, NULL); i++)
 				{
 					/* Allocate enough space for both strings, plus one more character for the
 					   comma that will separate the array items. */
@@ -50,6 +51,41 @@ char* xmpl_get_property (char* file, char* key)
 					value = strcat (value, ",");
 					value = strcat (value, xmp_string_cstr (s));
 				}
+			}
+
+			/* This property is a DateTime. */
+			else if (xmp_get_property_date (x, namespace, key, &d, &p))
+			{
+				char* tz_format = "-%02d:%02d";
+				char* time_format = "%02d-%02d-%02dT%02d:%02d:%02d.%04d";
+
+				/* Fill in the time zone information. */
+				char* tzinfo = (char*) malloc (strlen (tz_format) * sizeof (char));
+				sprintf (tzinfo, tz_format, d.tzHour, d.tzMinute);
+
+				/* If this represents a timezone east of UTC, change the sign. */
+				if (d.tzSign > 0)
+				{
+					tzinfo[0] = '+';
+
+				}
+
+				/* Now fill in the actual time information. */
+				value = (char*) malloc (sizeof (time_format));
+				sprintf (value, time_format,
+					d.year,
+					d.month,
+					d.day,
+					d.hour,
+					d.minute,
+					d.second,
+					d.nanoSecond);
+
+				/* Glue it all together. */
+				value = (char*) realloc (value, (strlen (value) + strlen (tzinfo)) * sizeof (char));
+				value = strcat (value, tzinfo);
+
+				free (tzinfo);
 			}
 
 			else
@@ -68,7 +104,7 @@ char* xmpl_get_property (char* file, char* key)
 	}
 }
 
-bool xmpl_set_property (char* file, char* key, char* value)
+bool xmpl_set_property (char* file, char* namespace, char* key, char* value)
 {
 	if (xmp_init ())
 	{
@@ -83,19 +119,19 @@ bool xmpl_set_property (char* file, char* key, char* value)
 		s = xmp_string_new ();
 
 		/* This property is a string. */
-		if (xmp_set_property (x, NS_DC, key, value, p))
+		if (xmp_set_property (x, namespace, key, value, p))
 		{
 			success = true;
 		}
 
 		/* Nope... it's an array. */
-		else if (xmp_set_array_item (x, NS_DC, key, 1, value, p))
+		else if (xmp_set_array_item (x, namespace, key, 1, value, p))
 		{
 			int i;
 			char* temp = strdup (value);
 			temp = strtok (temp, ",");
 
-			for (i = 1; temp && xmp_set_array_item (x, NS_DC, key, i, temp, p); i++)
+			for (i = 1; temp && xmp_set_array_item (x, namespace, key, i, temp, p); i++)
 			{
 				temp = strtok (NULL, ",");
 				success = true;
@@ -121,7 +157,7 @@ bool xmpl_set_property (char* file, char* key, char* value)
 	}
 }
 
-bool xmpl_delete_property (char* file, char* key)
+bool xmpl_delete_property (char* file, char* namespace, char* key)
 {
 	if (xmp_init ())
 	{
@@ -133,7 +169,7 @@ bool xmpl_delete_property (char* file, char* key)
 		f = xmp_files_open_new (file, XMP_OPEN_FORUPDATE | XMP_OPEN_ONLYXMP);
 		x = xmp_files_get_new_xmp (f);
 
-		if (xmp_has_property (x, NS_DC, key) && xmp_delete_property (x, NS_DC, key))
+		if (xmp_has_property (x, namespace, key) && xmp_delete_property (x, namespace, key))
 		{
 			success = true;
 		}

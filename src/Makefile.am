@@ -3,6 +3,7 @@ NULL =
 AM_CPPFLAGS = \
 	$(SNAP_CFLAGS) \
 	-include $(CONFIG_HEADER) \
+	-I$(top_srcdir)/include \
 	$(NULL)
 
 AM_VALAFLAGS = \
@@ -38,6 +39,8 @@ libxmpl_la_CFLAGS = \
 
 libxmpl_la_LDFLAGS = \
 	-shared \
+	-Wl,-rpath \
+	-Wl,LIBDIR \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \

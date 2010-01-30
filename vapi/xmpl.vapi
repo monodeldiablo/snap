@@ -22,12 +22,22 @@
 
 [CCode (cheader_filename = "xmpl.h", lower_case_cprefix = "xmpl_")]
 namespace Xmpl {
+	public const string DC;
+	public const string CC;
+	public const string EXIF;
+	public const string EXIF_AUX;
+	public const string TIFF;
+	public const string RDF;
+	public const string XMP;
+	public const string XAP;
+	public const string XAP_RIGHTS;
+
 	[CCode (cname = "xmpl_get_property")]
-	public static string get_property (string file, string key);
+	public static string get_property (string file, string namespace, string key);
 
 	[CCode (cname = "xmpl_set_property")]
-	public static bool set_property (string file, string key, string value);
+	public static bool set_property (string file, string namespace, string key, string value);
 
 	[CCode (cname = "xmpl_delete_property")]
-	public static bool delete_property (string file, string key);
+	public static bool delete_property (string file, string namespace, string key);
 }
