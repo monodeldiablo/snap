@@ -32,11 +32,11 @@ namespace Snap
 		MOGRIFY
 	}
 
-	[DBus (name = "org.washedup.Snap.RotateDaemon")]
+	[DBus (name = "org.washedup.Snap.Rotate")]
 	public class RotateDaemon : Daemon
 	{
-		private string dbus_object_name = "org.washedup.Snap.RotateDaemon";
-		private string dbus_object_path = "/org/washedup/Snap/RotateDaemon";
+		private string dbus_object_name = "org.washedup.Snap.Rotate";
+		private string dbus_object_path = "/org/washedup/Snap/Rotate";
 
 		/************
 		* OPERATION *
@@ -46,6 +46,7 @@ namespace Snap
 		{
 			this.processing_method = this.perform_rotation;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
+			this.run ();
 		}
 
 		/**********

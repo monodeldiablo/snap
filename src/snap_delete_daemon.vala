@@ -26,11 +26,11 @@ using DBus;
 
 namespace Snap
 {
-	[DBus (name = "org.washedup.Snap.DeleteDaemon")]
+	[DBus (name = "org.washedup.Snap.Delete")]
 	public class DeleteDaemon : Daemon
 	{
-		private string dbus_object_name = "org.washedup.Snap.DeleteDaemon";
-		private string dbus_object_path = "/org/washedup/Snap/DeleteDaemon";
+		private string dbus_object_name = "org.washedup.Snap.Delete";
+		private string dbus_object_path = "/org/washedup/Snap/Delete";
 
 		/************
 		* OPERATION *
@@ -40,6 +40,7 @@ namespace Snap
 		{
 			this.processing_method = this.perform_deletion;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
+			this.run ();
 		}
 
 		/**********

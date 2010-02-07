@@ -38,11 +38,11 @@ namespace Snap
 		INVALID_PREFERENCE
 	}
 
-	[DBus (name = "org.washedup.Snap.ImportDaemon")]
+	[DBus (name = "org.washedup.Snap.Import")]
 	public class ImportDaemon : Daemon
 	{
-		private string dbus_object_name = "org.washedup.Snap.ImportDaemon";
-		private string dbus_object_path = "/org/washedup/Snap/ImportDaemon";
+		private string dbus_object_name = "org.washedup.Snap.Import";
+		private string dbus_object_path = "/org/washedup/Snap/Import";
 
 		/************
 		* OPERATION *
@@ -52,6 +52,7 @@ namespace Snap
 		{
 			this.processing_method = this.perform_import;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
+			this.run ();
 		}
 
 		/**********
@@ -202,36 +203,24 @@ namespace Snap
 			// convention is strict and looks like this:
 			//
 			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
-			string photo_dir;
+			string photo_dir = this.get_preference ("photo-directory");
 
-			try
-			{
-				photo_dir = this.gconf_client.get_string ("/apps/snap/photo-directory");
+			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+			                                   photo_dir,
+			                                   quality,
+							   year,
+							   month,
+							   day);
+			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
+			                                                month,
+									day,
+									hour,
+									minute,
+									second,
+									subsecond,
+									suffix);
 
-				string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				                                   photo_dir,
-				                                   quality,
-								   year,
-								   month,
-								   day);
-				string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
-				                                                month,
-										day,
-										hour,
-										minute,
-										second,
-										subsecond,
-										suffix);
-
-				return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
-			}
-
-			catch (GLib.Error e)
-			{
-				preference_not_set ("photo_directory");
-
-				throw new Snap.ImportError.INVALID_PREFERENCE ("Error fetching the 'photo-directory' setting: %s", e.message);
-			}
+			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
 		}
 
 		private bool move_photo (string old_path, string new_path)

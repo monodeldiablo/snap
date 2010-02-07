@@ -5,13 +5,80 @@
       <applyto>/apps/snap/photo-directory</applyto>
       <owner>snap</owner>
       <type>string</type>
-      <default>~/photos</default>
       <locale name="C">
         <short>The root photo directory</short>
       </locale>
-      
+
       <locale name="es">
         <short>El directorio baso de los photos</short>
+      </locale>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/window-width</key>
+      <applyto>/apps/snap/window-width</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <default>800</default>
+      <locale name="C">
+        <short>The width (in pixels) of the application window</short>
+      </locale>
+
+      <locale name="es">
+        <short>El width (en pixels) de la venta de la applicación</short>
+      </locale>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/window-height</key>
+      <applyto>/apps/snap/window-height</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <default>600</default>
+      <locale name="C">
+        <short>The height (in pixels) of the application window</short>
+      </locale>
+
+      <locale name="es">
+        <short>El alto (en pixels) de la venta de la applicación</short>
+      </locale>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/daemon-lifetime</key>
+      <applyto>/apps/snap/daemon-lifetime</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <default>60</default>
+      <locale name="C">
+        <short>The time (in seconds) that a daemon lives after its last request is processed</short>
+      </locale>
+
+      <locale name="es">
+        <short>El tiempo (en segundos) que vive un daemon después de la ultima requesto está procesado</short>
+      </locale>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/default-artist</key>
+      <applyto>/apps/snap/default-artist</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <locale name="C">
+        <short>The author name to insert by default into imported photo metadata</short>
+      </locale>
+
+      <locale name="es">
+        <short>El nombre de (el/la) artista para insertar en la metadata de los fotos importados</short>
+      </locale>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/default-copyright</key>
+      <applyto>/apps/snap/default-copyright</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <locale name="C">
+        <short>The copyright to insert by default into imported photo metadata</short>
+      </locale>
+
+      <locale name="es">
+        <short>Los derechos reservados para insertar en la metadata de los fotos importados</short>
       </locale>
     </schema>
   </schemalist>

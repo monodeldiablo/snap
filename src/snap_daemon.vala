@@ -59,13 +59,8 @@ namespace Snap
 		// incremented by every request that comes in.
 		public GLib.Mutex request_counter_lock;
 
-		// Set the daemon's timeout for 60 seconds, so that it exits after a minute
-		// of inactivity.
-		public uint timeout_usec = 60000;
-		public uint timeout_id;
-
-		// Keep settings in a common namespace and share it with all child daemons.
-		public GConf.Client gconf_client = GConf.Client.get_default ();
+		// Keep track of the timeout ID for extending the timeout later.
+		public uint timeout_id = 0;
 
 		/**********
 		* SIGNALS *
@@ -73,7 +68,6 @@ namespace Snap
 
 		public signal void request_succeeded (uint request_id);
 		public signal void request_failed (uint request_id);
-		public signal void preference_not_set (string key);
 
 		/************
 		* OPERATION *
@@ -84,13 +78,12 @@ namespace Snap
 		{
 			this.request_counter = 0;
 			this.request_counter_lock = new Mutex ();
-			this.mainloop = new GLib.MainLoop (null, false);
 		}
 
 		// ... and its darker counterpart, the destructor.
 		~Daemon ()
 		{
-			quit ();
+			this.quit ();
 		}
 
 		// Register the daemon as a DBus service.
@@ -113,9 +106,7 @@ namespace Snap
 					debug ("Successfully registered DBus service!");
 
 					// Add a timeout to check if this application is active every n seconds.
-					this.timeout_id = GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
-
-					this.mainloop.run ();
+					this.restart_timer ();
 				}
 
 				else
@@ -129,6 +120,47 @@ namespace Snap
 			{
 				stderr.printf ("Shit! %s\n", e.message);
 			}
+		}
+
+		// FIXME: Currently, any GLib.Value is initialized to null, which later
+		//        results in an error being thrown when we assign a value to the
+		//        GLib.Value variable, complaining that the variable is already set
+		//        to null. Later, it all blows up.
+		//
+		//        My solution, for now, is to just make everything strings and deal
+		//        with the problem later (hopefully by just updating Vala).
+		//public GLib.Value get_preference (string key)
+		public string get_preference (string key)
+		{
+			string preference = "";
+
+			try
+			{
+				dynamic DBus.Object preferences_daemon;
+				DBus.Connection conn;
+
+				conn = DBus.Bus.get (DBus.BusType.SESSION);
+				preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
+					"/org/washedup/Snap/Preferences",
+					"org.washedup.Snap.Preferences");
+
+				preference =  preferences_daemon.GetPreference (key);
+
+				while (preference == "");
+				{
+					GLib.Thread.usleep (1000);
+					preference = preferences_daemon.GetPreference (key);
+				}
+			}
+
+			catch (DBus.Error e)
+			{
+				critical ("Error connecting to the preferences daemon: %s", e.message);
+
+				this.quit ();
+			}
+
+			return preference;
 		}
 
 		// Check every timeout_usec if the application is inactive and, if so, quit.
@@ -161,6 +193,7 @@ namespace Snap
 
 			// Spawn a worker thread that processes the items in the queue, if one such
 			// thread does not already exist.
+			// FIXME: Investigate a thread pool.
 			if (this.worker_thread == null)
 			{
 				try
@@ -221,8 +254,23 @@ namespace Snap
 		// Restart the timer.
 		public void restart_timer ()
 		{
-			GLib.Source.remove (timeout_id);
-			this.timeout_id = GLib.Timeout.add (this.timeout_usec, this.exit_if_inactive);
+			// Set the daemon's timeout for timeout_usec, so that it exits after a
+			// period of inactivity.
+			uint timeout_usec = (uint) (get_preference ("daemon-lifetime").to_double () * 1000);
+
+			if (this.timeout_id > 0)
+			{
+				GLib.Source.remove (this.timeout_id);
+			}
+
+			this.timeout_id = GLib.Timeout.add (timeout_usec, this.exit_if_inactive);
+		}
+
+		// Run the program's event loop.
+		public void run ()
+		{
+			this.mainloop = new GLib.MainLoop (null, false);
+			this.mainloop.run ();
 		}
 
 		// Tear down the application.
@@ -235,9 +283,6 @@ namespace Snap
 				this.worker_thread.join ();
 			}
 
-			// Let clients and listeners know that we're going bye bye.
-			//exiting ();
-			
 			// Actually, finally, really go away.
 			debug ("Goodbye!");
 			this.mainloop.quit ();

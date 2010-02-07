@@ -1,13 +1,14 @@
 v0.1.0
 ------
-* remove (where appropriate) the reliance on exiv2 in favor of xmpl (and maybe
-  libtiff for some EXIF bits).
+* moves and deletes are scary (terrifying, actually!)... consider copies and
+  moves, respectively, instead
+  * "move" just copies from the source to the dest
+  * "delete" moves to a "trash" directory, which can be purged periodically or
+    browsed and reinstated (via the import API!)
+* implement duplicate checking in the import daemon!
+* implement thumbnail extraction in the import daemon (exiv2 can just pull the
+  first image preview from any jpeg)
 * expose request processing signals to DBus somehow...
-  * include the preference signal ^
-* decide if daemons should be handed full paths or "ideal" paths (e.g.
-  '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
-  or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
-* make the GLib.Value stuff prettier (or find a shortcut in Vala's docs)
 * design a metadata daemon, too
   * the tag daemon could just proxy to this, or this might eliminate the tag
     daemon altogether
@@ -22,32 +23,13 @@ v0.1.0
   * better yet, only use one set (Xmp > Iptc > Exif in my mind), simplifying
     implementation and removing the need to keep lots of different sets of
     metadata in sync
-    * this means I could just use exempi, I do believe...
+    * this means I could just use exempi, I do believe (although some EXIF
+      parsing is still necessary to retrieve Exif.SubSecTime)
     * the other upside is that Tracker already indexes these (Xmp.dc.creator,
       Xmp.dc.subject) and exempi is already an optional dependency for Nautilus
-* use GConf for settings (stick it into Daemon base class)
-  * photo directory
-  * seconds for daemons to hang around
-  * artist default
-  * copyright default
-    * maybe with string interpolation, e.g. "Copyright © %Y %artist%.
-      All rights reserved."
-    * or maybe just have a drop-down selection of common ones (CC, etc.) and do
-      the above string interpolation automagically...
-  * figure out a nice way to handle missing/bad preferences
-    * emit a preference_invalid signal that's handled by a listening process
-      (yet another daemon?!), perhaps called preferences_daemon, which is kept
-      alive for as long as other daemons are working or the front end is going
-      * better yet, just launch it on demand like other daemons and have it
-        live for X seconds before dying of unuse :(
-* moves and deletes are scary (terrifying, actually!)... consider copies and
-  moves, respectively, instead
-  * "move" just copies from the source to the dest
-  * "delete" moves to a "trash" directory, which can be purged periodically or
-    browsed and reinstated (via the import API!)
-* implement duplicate checking in the import daemon!
-* implement thumbnail extraction in the import daemon (exiv2 can just pull the
-  first image preview from any jpeg)
+* decide if daemons should be handed full paths or "ideal" paths (e.g.
+  '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
+  or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
 * investigate whether there's a maximum argument length for DBus (batch calls
   could get huge)
 * implement logging!
@@ -58,5 +40,10 @@ v0.1.0
 * implement artist and copyright settings and defaults in the import daemon
   * better yet, use the metadata daemon (see above)
 * write a test harness
+* make the GLib.Value stuff prettier (or find a shortcut in Vala's docs)
+* remove (where appropriate) the reliance on exiv2 in favor of xmpl (and maybe
+  libexif for some EXIF bits).
 * write full Vala bindings for exempi and do away with xmpl (or make xmpl a
   more Vala-friendly library than exempi, but with all the same pieces)
+* fix up the compile flags in src/Makefile.am so that daemons don't get built
+  with unnecessary dependencies (GTK, GConf, POSIX, etc.)

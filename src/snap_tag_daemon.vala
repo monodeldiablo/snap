@@ -32,11 +32,11 @@ namespace Snap
 		EXIV2
 	}
 
-	[DBus (name = "org.washedup.Snap.TagDaemon")]
+	[DBus (name = "org.washedup.Snap.Tag")]
 	public class TagDaemon : Daemon
 	{
-		private string dbus_object_name = "org.washedup.Snap.TagDaemon";
-		private string dbus_object_path = "/org/washedup/Snap/TagDaemon";
+		private string dbus_object_name = "org.washedup.Snap.Tag";
+		private string dbus_object_path = "/org/washedup/Snap/Tag";
 
 		/************
 		* OPERATION *
@@ -44,8 +44,9 @@ namespace Snap
 
 		public TagDaemon (string[] args)
 		{
-			this.processing_method = this.perform_tagging;
+			this.processing_method = this.handle_tag_request;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
+			this.run ();
 		}
 
 		/**********
@@ -90,6 +91,9 @@ namespace Snap
 
 		public string[] get_tags (string path)
 		{
+			// Restart the timer to go for another N seconds.
+			this.restart_timer ();
+
 			Invocation read_tags = new Invocation("exiv2 -Pkv %s".printf (path));
 			GLib.MatchInfo match = read_tags.scan ("Xmp.dc.subject\\s+(?<tags>.*)");
 			string[] tags;
@@ -104,13 +108,10 @@ namespace Snap
 				tags = new string[0];
 			}
 
-			// Restart the timer to go for another N seconds.
-			this.restart_timer ();
-
 			return tags;
 		}
 
-		private bool perform_tagging (Request req) throws GLib.Error
+		private bool handle_tag_request (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
 			string verb = req.get_string (1);

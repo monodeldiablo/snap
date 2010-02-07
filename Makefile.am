@@ -11,27 +11,32 @@ SUBDIRS = \
 
 snapservicedir = ${datadir}/dbus-1/services
 snapservice_DATA = \
-	org.washedup.Snap.ImportDaemon.service \
-	org.washedup.Snap.RotateDaemon.service \
-	org.washedup.Snap.TagDaemon.service \
-	org.washedup.Snap.DeleteDaemon.service \
+	org.washedup.Snap.Import.service \
+	org.washedup.Snap.Rotate.service \
+	org.washedup.Snap.Tag.service \
+	org.washedup.Snap.Delete.service \
+	org.washedup.Snap.Preferences.service \
 	$(NULL)
 
-org.washedup.Snap.ImportDaemon.service:
-	cp org.washedup.Snap.ImportDaemon.service.in org.washedup.Snap.ImportDaemon.service && \
-	echo "Exec=${bindir}/snap-import-daemon" >> org.washedup.Snap.ImportDaemon.service
+org.washedup.Snap.Import.service:
+	cp org.washedup.Snap.Import.service.in org.washedup.Snap.Import.service && \
+	echo "Exec=${bindir}/snap-import-daemon" >> org.washedup.Snap.Import.service
 
-org.washedup.Snap.RotateDaemon.service:
-	cp org.washedup.Snap.RotateDaemon.service.in org.washedup.Snap.RotateDaemon.service && \
-	echo "Exec=${bindir}/snap-rotate-daemon" >> org.washedup.Snap.RotateDaemon.service
+org.washedup.Snap.Rotate.service:
+	cp org.washedup.Snap.Rotate.service.in org.washedup.Snap.Rotate.service && \
+	echo "Exec=${bindir}/snap-rotate-daemon" >> org.washedup.Snap.Rotate.service
 
-org.washedup.Snap.TagDaemon.service:
-	cp org.washedup.Snap.TagDaemon.service.in org.washedup.Snap.TagDaemon.service && \
-	echo "Exec=${bindir}/snap-tag-daemon" >> org.washedup.Snap.TagDaemon.service
+org.washedup.Snap.Tag.service:
+	cp org.washedup.Snap.Tag.service.in org.washedup.Snap.Tag.service && \
+	echo "Exec=${bindir}/snap-tag-daemon" >> org.washedup.Snap.Tag.service
 
-org.washedup.Snap.DeleteDaemon.service:
-	cp org.washedup.Snap.DeleteDaemon.service.in org.washedup.Snap.DeleteDaemon.service && \
-	echo "Exec=${bindir}/snap-delete-daemon" >> org.washedup.Snap.DeleteDaemon.service
+org.washedup.Snap.Delete.service:
+	cp org.washedup.Snap.Delete.service.in org.washedup.Snap.Delete.service && \
+	echo "Exec=${bindir}/snap-delete-daemon" >> org.washedup.Snap.Delete.service
+
+org.washedup.Snap.Preferences.service:
+	cp org.washedup.Snap.Preferences.service.in org.washedup.Snap.Preferences.service && \
+	echo "Exec=${bindir}/snap-preferences-daemon" >> org.washedup.Snap.Preferences.service
 
 snapdocdir = ${docdir}
 snapdoc_DATA = \

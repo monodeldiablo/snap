@@ -4,6 +4,7 @@ snapdir = ${pkgdatadir}
 snap_DATA = \
 	snap.svg \
 	main.ui \
+	preferences.ui \
 	$(NULL)
 
 schemadir = ${datadir}/gconf/schemas

@@ -12,6 +12,7 @@ AM_VALAFLAGS = \
 	--pkg config \
 	--pkg dbus-glib-1 \
 	--pkg gconf-2.0 \
+	--pkg gtk+-2.0 \
 	--pkg posix \
 	--pkg xmpl \
 	$(NULL)
@@ -25,6 +26,7 @@ bin_PROGRAMS = \
 	snap-rotate-daemon \
 	snap-tag-daemon \
 	snap-delete-daemon \
+	snap-preferences-daemon \
 	$(NULL)
 
 libxmpl_la_SOURCES = \
@@ -33,8 +35,7 @@ libxmpl_la_SOURCES = \
 	$(NULL)
 
 libxmpl_la_CFLAGS = \
-	`pkg-config --cflags exempi-2.0` \
-	`pkg-config --libs exempi-2.0` \
+	`pkg-config --cflags --libs exempi-2.0` \
 	$(NULL)
 
 libxmpl_la_LDFLAGS = \
@@ -83,6 +84,16 @@ snap_delete_daemon_SOURCES = \
 	$(NULL)
 
 snap_delete_daemon_LDADD = \
+	$(SNAP_LIBS) \
+	$(NULL)
+
+snap_preferences_daemon_SOURCES = \
+	snap_preferences_daemon.vala \
+	snap_daemon.vala \
+	snap_request.vala \
+	$(NULL)
+
+snap_preferences_daemon_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 
