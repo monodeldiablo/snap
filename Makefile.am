@@ -3,7 +3,6 @@ NULL =
 #Build in these directories:
 
 SUBDIRS = \
-	include \
 	src \
 	data \
 	po \
@@ -14,8 +13,8 @@ snapservice_DATA = \
 	org.washedup.Snap.Import.service \
 	org.washedup.Snap.Thumbnail.service \
 	org.washedup.Snap.Rotate.service \
-	org.washedup.Snap.Tag.service \
 	org.washedup.Snap.Delete.service \
+	org.washedup.Snap.Metadata.service \
 	org.washedup.Snap.Preferences.service \
 	$(NULL)
 
@@ -31,13 +30,13 @@ org.washedup.Snap.Rotate.service:
 	cp org.washedup.Snap.Rotate.service.in org.washedup.Snap.Rotate.service && \
 	echo "Exec=${bindir}/snap-rotate-daemon" >> org.washedup.Snap.Rotate.service
 
-org.washedup.Snap.Tag.service:
-	cp org.washedup.Snap.Tag.service.in org.washedup.Snap.Tag.service && \
-	echo "Exec=${bindir}/snap-tag-daemon" >> org.washedup.Snap.Tag.service
-
 org.washedup.Snap.Delete.service:
 	cp org.washedup.Snap.Delete.service.in org.washedup.Snap.Delete.service && \
 	echo "Exec=${bindir}/snap-delete-daemon" >> org.washedup.Snap.Delete.service
+
+org.washedup.Snap.Metadata.service:
+	cp org.washedup.Snap.Metadata.service.in org.washedup.Snap.Metadata.service && \
+	echo "Exec=${bindir}/snap-metadata-daemon" >> org.washedup.Snap.Metadata.service
 
 org.washedup.Snap.Preferences.service:
 	cp org.washedup.Snap.Preferences.service.in org.washedup.Snap.Preferences.service && \
@@ -54,7 +53,6 @@ snapdoc_DATA = \
 	$(NULL)
 
 EXTRA_DIST = \
-	org.washedup.Snap.service.in \
 	$(snapdoc_DATA) \
 	intltool-extract.in \
 	intltool-merge.in \
@@ -62,7 +60,6 @@ EXTRA_DIST = \
 	$(NULL)
 
 DISTCLEANFILES = \
-	org.washedup.Snap.service \
 	intltool-extract \
 	intltool-merge \
 	intltool-update \

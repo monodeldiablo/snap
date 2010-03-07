@@ -17,32 +17,13 @@ AM_VALAFLAGS = \
 	--pkg xmpl \
 	$(NULL)
 
-lib_LTLIBRARIES = \
-	libxmpl.la \
-	$(NULL)
-
 bin_PROGRAMS = \
 	snap-import-daemon \
 	snap-thumbnail-daemon \
 	snap-rotate-daemon \
-	snap-tag-daemon \
 	snap-delete-daemon \
+	snap-metadata-daemon \
 	snap-preferences-daemon \
-	$(NULL)
-
-libxmpl_la_SOURCES = \
-	xmpl.h \
-	xmpl.c \
-	$(NULL)
-
-libxmpl_la_CFLAGS = \
-	`pkg-config --cflags --libs exempi-2.0` \
-	$(NULL)
-
-libxmpl_la_LDFLAGS = \
-	-shared \
-	-Wl,-rpath \
-	-Wl,LIBDIR \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \
@@ -78,17 +59,6 @@ snap_rotate_daemon_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 
-snap_tag_daemon_SOURCES = \
-	snap_tag_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
-	snap_invocation.vala \
-	$(NULL)
-
-snap_tag_daemon_LDADD = \
-	$(SNAP_LIBS) \
-	$(NULL)
-
 snap_delete_daemon_SOURCES = \
 	snap_delete_daemon.vala \
 	snap_daemon.vala \
@@ -96,6 +66,16 @@ snap_delete_daemon_SOURCES = \
 	$(NULL)
 
 snap_delete_daemon_LDADD = \
+	$(SNAP_LIBS) \
+	$(NULL)
+
+snap_metadata_daemon_SOURCES = \
+	snap_metadata_daemon.vala \
+	snap_daemon.vala \
+	snap_request.vala \
+	$(NULL)
+
+snap_metadata_daemon_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 
