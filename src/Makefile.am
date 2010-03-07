@@ -13,7 +13,7 @@ AM_VALAFLAGS = \
 	--pkg dbus-glib-1 \
 	--pkg gconf-2.0 \
 	--pkg gtk+-2.0 \
-	--pkg posix \
+	--pkg gio-2.0 \
 	--pkg xmpl \
 	$(NULL)
 
@@ -23,6 +23,7 @@ lib_LTLIBRARIES = \
 
 bin_PROGRAMS = \
 	snap-import-daemon \
+	snap-thumbnail-daemon \
 	snap-rotate-daemon \
 	snap-tag-daemon \
 	snap-delete-daemon \
@@ -52,6 +53,17 @@ snap_import_daemon_SOURCES = \
 	$(NULL)
 
 snap_import_daemon_LDADD = \
+	$(SNAP_LIBS) \
+	$(NULL)
+
+snap_thumbnail_daemon_SOURCES = \
+	snap_thumbnail_daemon.vala \
+	snap_daemon.vala \
+	snap_request.vala \
+	snap_invocation.vala \
+	$(NULL)
+
+snap_thumbnail_daemon_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 

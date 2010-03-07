@@ -116,6 +116,8 @@ namespace Snap
 		{
 			string preference;
 
+			debug ("got request for '%s'", key);
+
 			try
 			{
 				preference = this.gconf_client.get_string (key_format.printf (key));
@@ -128,6 +130,8 @@ namespace Snap
 
 			catch (GLib.Error e)
 			{
+				debug ("whoops! %s", e.message);
+
 				// OK. We have no idea what this setting is or should be. We'll launch a
 				// separate process to investigate and prompt the user for input (showing
 				// a helpful little message explaining the inconvenience, of course).
@@ -135,11 +139,13 @@ namespace Snap
 				this.prompt_user (key, e.message);
 			}
 
+			debug ("returning '%s'", preference);
+
 			// Send the client 'val'. If an error was thrown, 'val' will be initialized
-			// to the uchar value of 0, which means that we're terribly sorry, but we're
-			// desperately trying to contact the user to clear things up,
-			// thankyouverymuch. Check back in the tiniest of moments, if it's not an
-			// overly bothersome amount of trouble.
+			// to "", which means that we're terribly sorry, but we're desperately
+			// trying to contact the user to clear things up, thankyouverymuch. Check
+			// back in the tiniest of moments, if it's not an overly bothersome amount
+			// of trouble.
 			return preference;
 		}
 

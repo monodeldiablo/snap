@@ -42,7 +42,10 @@ namespace Snap
 	{
 		// The application main loop.
 		private GLib.MainLoop mainloop;
-		
+
+		// The daemon that manages settings.
+		public dynamic DBus.Object preferences_daemon;
+
 		/******************
 		* DATA STRUCTURES *
 		******************/
@@ -55,9 +58,8 @@ namespace Snap
 		// assigning an almost-unique ID to long-running processes.
 		public uint request_counter;
 
-		// Ensure that the request_counter variable is thread-safe, since it will be
-		// incremented by every request that comes in.
-		public GLib.Mutex request_counter_lock;
+		// Any time we modify a thread-global setting, we need to lock...
+		public GLib.Mutex global_lock;
 
 		// Keep track of the timeout ID for extending the timeout later.
 		public uint timeout_id = 0;
@@ -66,8 +68,8 @@ namespace Snap
 		* SIGNALS *
 		**********/
 
-		public signal void request_succeeded (uint request_id);
-		public signal void request_failed (uint request_id);
+		//public signal void request_succeeded (uint request_id);
+		//public signal void request_failed (uint request_id);
 
 		/************
 		* OPERATION *
@@ -77,7 +79,7 @@ namespace Snap
 		public Daemon ()
 		{
 			this.request_counter = 0;
-			this.request_counter_lock = new Mutex ();
+			this.global_lock = new Mutex ();
 		}
 
 		// ... and its darker counterpart, the destructor.
@@ -136,28 +138,37 @@ namespace Snap
 
 			try
 			{
-				dynamic DBus.Object preferences_daemon;
-				DBus.Connection conn;
+				if (this.preferences_daemon == null)
+				{
+					debug ("launching the preferences daemon");
+					DBus.Connection conn;
 
-				conn = DBus.Bus.get (DBus.BusType.SESSION);
-				preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
-					"/org/washedup/Snap/Preferences",
-					"org.washedup.Snap.Preferences");
+					conn = DBus.Bus.get (DBus.BusType.SESSION);
 
-				preference =  preferences_daemon.GetPreference (key);
+					this.global_lock.@lock ();
+					this.preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
+						"/org/washedup/Snap/Preferences",
+						"org.washedup.Snap.Preferences");
+					debug ("launched!");
+					this.global_lock.unlock ();
+				}
 
-				while (preference == "");
+				debug ("fetching...");
+				preference = preferences_daemon.get_preference (key);
+				debug ("fetched '%s'!", preference);
+
+				while (preference == "")
 				{
 					GLib.Thread.usleep (1000);
-					preference = preferences_daemon.GetPreference (key);
+					debug ("fetching...");
+					preference = preferences_daemon.get_preference (key);
+					debug ("fetched!");
 				}
 			}
 
 			catch (DBus.Error e)
 			{
 				critical ("Error connecting to the preferences daemon: %s", e.message);
-
-				this.quit ();
 			}
 
 			return preference;
@@ -183,10 +194,10 @@ namespace Snap
 			}
 
 			// Assign the request a unique(ish) ID.
-			this.request_counter_lock.@lock ();
+			this.global_lock.@lock ();
 			this.request_counter += 1;
 			req.request_id = this.request_counter;
-			this.request_counter_lock.unlock ();
+			this.global_lock.unlock ();
 
 			// Add the request to the queue.
 			this.request_queue.push (req);
@@ -225,8 +236,13 @@ namespace Snap
 
 					try
 					{
-						bool success = this.processing_method (req);
+						//bool success = this.processing_method (req);
+						this.processing_method (req);
 
+						// FIXME: As of right now, these signals cannot be inherited and are thus
+						//        meaningless. Child classes must implement their own signals
+						//        that do the same thing as this, but less cleanly.
+						/*
 						if (success)
 						{
 							// Signal that the request has been successfully completed.
@@ -237,6 +253,7 @@ namespace Snap
 						{
 							this.request_failed (req.request_id);
 						}
+						*/
 					}
 
 					catch (GLib.Error e)

@@ -23,10 +23,7 @@
 
 using GLib;
 using DBus;
-using Posix;
 
-// FIXME: Implement thumbnailing (exiv2 will pull the preview images from all
-//        photos, 160x120 first).
 namespace Snap
 {
 	public errordomain ImportError
@@ -35,6 +32,7 @@ namespace Snap
 		SPAWN,
 		EXIV2,
 		REGEX,
+		COPY,
 		INVALID_PREFERENCE
 	}
 
@@ -44,13 +42,22 @@ namespace Snap
 		private string dbus_object_name = "org.washedup.Snap.Import";
 		private string dbus_object_path = "/org/washedup/Snap/Import";
 
+		/**********
+		* SIGNALS *
+		**********/
+
+		public signal void request_succeeded (uint request_id, string new_path);
+		public signal void request_failed (uint request_id, string reason);
+
 		/************
 		* OPERATION *
 		************/
 
+		public string photo_directory = null;
+
 		public ImportDaemon (string[] args)
 		{
-			this.processing_method = this.perform_import;
+			this.processing_method = this.handle_import_request;
 			this.start_dbus_service (dbus_object_name, dbus_object_path);
 			this.run ();
 		}
@@ -58,6 +65,11 @@ namespace Snap
 		/**********
 		* METHODS *
 		**********/
+
+		public void set_photo_directory (string dir)
+		{
+			this.photo_directory = dir;
+		}
 
 		public uint[] import (string[] paths)
 		{
@@ -75,36 +87,131 @@ namespace Snap
 		}
 
 		// Perform the actual import of items in the queue.
-		private bool perform_import (Request req) throws GLib.Error
+		private bool handle_import_request (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
 
 			try
 			{
-				string new_path = this.make_new_path (path);
-				bool success = this.move_photo (path, new_path);
+				string new_path = this.construct_new_path (path);
+				bool success = this.copy_photo (path, new_path);
 
 				if (success)
 				{
-					debug ("Successfully imported file at '%s' -> '%s'!", path, new_path);
+					this.request_succeeded (req.request_id, new_path);
+
 					return true;
+				}
+
+				else
+				{
+					this.request_failed (req.request_id, "Unknown error");
 				}
 			}
 
 			catch (Snap.ImportError e)
 			{
-				critical ("Error making a new path from '%s': %s", path, e.message);
+				this.request_failed (req.request_id, e.message);
 			}
 
 			return false;
 		}
 
-		// FIXME: Look into using libexif or some other library to do this without
-		//        needing to spawn processes and dump tons of unnecessary strings.
-		private string make_new_path (string path) throws Snap.ImportError
+		private string construct_new_path (string path) throws Snap.ImportError
+		{
+			string suffix = this.suffix_from_photo (path);
+					debug ("suffix: '%s'", suffix);
+			string[] datetime = this.datetime_from_photo (path);
+					debug ("datetime: %s%s%s_%s%s%s%s",
+						datetime[0],
+						datetime[1],
+						datetime[2],
+						datetime[3],
+						datetime[4],
+						datetime[5],
+						datetime[6]);
+
+			string year = datetime[0];
+			string month = datetime[1];
+			string day = datetime[2];
+			string hour = datetime[3];
+			string minute = datetime[4];
+			string second = datetime[5];
+			string subsecond = datetime[6];
+
+			// We determine the proper directory root within the photo directory by
+			// examining the quality of the image (which, in this case, is apparently
+			// a function of the file name suffix).
+			string quality;
+
+			if (suffix == "nef" || suffix == "NEF")
+			{
+				quality = "raw";
+			}
+			else
+			{
+				quality = "high";
+			}
+
+			debug ("quality: %s", quality);
+
+			// Construct the path and file names from this information. The naming
+			// convention is strict and looks like this:
+			//
+			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
+			if (photo_directory == null)
+			{
+				this.photo_directory = this.get_preference ("photo-directory");
+			}
+			debug ("photo_directory: %s", this.photo_directory);
+
+			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+			                                   this.photo_directory,
+			                                   quality,
+							   year,
+							   month,
+							   day);
+			debug ("dir: %s", dir);
+			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
+			                                                month,
+									day,
+									hour,
+									minute,
+									second,
+									subsecond,
+									suffix);
+			debug ("file: %s", file_name);
+
+			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
+		}
+
+		private bool copy_photo (string old_path, string new_path) throws Snap.ImportError
+		{
+			bool success = false;
+
+			try
+			{
+				var vfs = GLib.Vfs.get_default ();
+				var src = vfs.get_file_for_path (old_path);
+				var dest = vfs.get_file_for_path (new_path);
+
+				// If the directory tree doesn't exist, make it.
+				success = dest.get_parent ().make_directory_with_parents (null) &&
+					src.copy (dest, GLib.FileCopyFlags.BACKUP, null, null);
+			}
+
+			catch (GLib.Error e)
+			{
+				throw new Snap.ImportError.COPY (e.message);
+			}
+
+			return success;
+		}
+
+		private string suffix_from_photo (string path) throws Snap.ImportError
 		{
 			// First, we verify that this is a file with the proper extension (and we
-			// figure out what that extension is for later, when we move it).
+			// figure out what that extension is for later, when we copy it).
 			string suffix;
 			GLib.Regex suffix_ex;
 			GLib.MatchInfo suffix_match;
@@ -131,6 +238,13 @@ namespace Snap
 				throw new Snap.ImportError.SUFFIX ("Error examining '%s': Invalid file type".printf (path));
 			}
 
+			return suffix;
+		}
+
+		// FIXME: Look into using libexif or some other library to do this without
+		//        needing to spawn processes and dump tons of unnecessary strings.
+		private string[] datetime_from_photo (string path) throws Snap.ImportError
+		{
 			// Dump the EXIF data from eviv2 in the format "Exif.Key     Value".
 			Invocation dump_exif = new Invocation ("exiv2 -Pkv %s".printf (path));
 
@@ -148,23 +262,17 @@ namespace Snap
 			GLib.MatchInfo datetime_match = dump_exif.scan ("Exif.Image.DateTime\\s+(?<year>\\d{4}):(?<month>\\d{2}):(?<day>\\d{2}) (?<hour>\\d{2}):(?<minute>\\d{2}):(?<second>\\d{2})");
 			GLib.MatchInfo subsecond_match = dump_exif.scan ("Exif.Photo.SubSecTime\\s+(?<subsecond>\\d{2})");
 
-			string year;
-			string month;
-			string day;
-			string hour;
-			string minute;
-			string second;
-			string subsecond;
+			string[] datetime = new string[8];
 
 			// Some cameras don't support sub-second resolution.
 			if (subsecond_match.matches ())
 			{
-				subsecond = subsecond_match.fetch_named ("subsecond");
+				datetime[6] = subsecond_match.fetch_named ("subsecond");
 			}
 
 			else
 			{
-				subsecond = "00";
+				datetime[6] = "00";
 			}
 
 			// If the datetime data didn't match, we've got problems.
@@ -172,12 +280,12 @@ namespace Snap
 			//        the file's mtime or something...
 			if (datetime_match.matches ())
 			{
-				year = datetime_match.fetch_named ("year");
-				month = datetime_match.fetch_named ("month");
-				day = datetime_match.fetch_named ("day");
-				hour = datetime_match.fetch_named ("hour");
-				minute = datetime_match.fetch_named ("minute");
-				second = datetime_match.fetch_named ("second");
+				datetime[0] = datetime_match.fetch_named ("year");
+				datetime[1] = datetime_match.fetch_named ("month");
+				datetime[2] = datetime_match.fetch_named ("day");
+				datetime[3] = datetime_match.fetch_named ("hour");
+				datetime[4] = datetime_match.fetch_named ("minute");
+				datetime[5] = datetime_match.fetch_named ("second");
 			}
 
 			else
@@ -185,70 +293,7 @@ namespace Snap
 				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
 			}
 
-			// We determine the proper directory root within the photo directory by
-			// examining the quality of the image (which, in this case, is apparently
-			// a function of the file name suffix).
-			string quality;
-
-			if (suffix == "nef" || suffix == "NEF")
-			{
-				quality = "raw";
-			}
-			else
-			{
-				quality = "high";
-			}
-
-			// Construct the path and file names from this information. The naming
-			// convention is strict and looks like this:
-			//
-			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
-			string photo_dir = this.get_preference ("photo-directory");
-
-			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-			                                   photo_dir,
-			                                   quality,
-							   year,
-							   month,
-							   day);
-			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
-			                                                month,
-									day,
-									hour,
-									minute,
-									second,
-									subsecond,
-									suffix);
-
-			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
-		}
-
-		private bool move_photo (string old_path, string new_path)
-		{
-			string dir = GLib.Path.get_dirname (new_path);
-			int status;
-
-			// Create the directory, if necessary.
-			// FIXME: Check the return code of this call to make sure it actually completed.
-			status = GLib.DirUtils.create_with_parents (dir, (int) (Posix.S_IRWXU | Posix.S_IRWXU));
-
-			if (status < 0)
-			{
-				critical ("Error creating the directory at '%s'", dir);
-				return false;
-			}
-
-			// Move the file to the proper location in the photo directory.
-			// FIXME: Check the return code of this call to make sure it actually completed.
-			GLib.FileUtils.rename (old_path, new_path);
-
-			if (status < 0)
-			{
-				critical ("Error moving file from '%s' to '%s'", old_path, new_path);
-				return false;
-			}
-
-			return true;
+			return datetime;
 		}
 
 		/************
