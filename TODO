@@ -5,6 +5,7 @@ v0.1.0
   * "delete" moves to a "trash" directory, which can be purged periodically or
     browsed and reinstated (via the import API!)
 * implement duplicate checking in the import daemon!
+  * check out Gio.File.equal () & Gio.File.hash ()
   * check file size (why?)
   * hash similarly-sized photos (why?)
   * pop up photo view w/both photos, asking if they are duplicates

@@ -94,6 +94,14 @@ namespace Snap
 			try
 			{
 				string new_path = this.construct_new_path (path);
+
+				if (GLib.FileUtils.test (new_path, GLib.FileTest.EXISTS))
+				{
+					// FIXME: Pop up a window comparing this photo with the one in its
+					//        destination and ask the user whether they're the same or
+					//        different.
+				}
+
 				bool success = this.copy_photo (path, new_path);
 
 				if (success)
