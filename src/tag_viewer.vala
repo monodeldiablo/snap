@@ -22,6 +22,7 @@
  */
 
 using GLib;
+using Gee;
 using Gtk;
 using DBus;
 
@@ -31,55 +32,17 @@ namespace Snap
 	{
 		NAME,
 		IS_APPLIED,
-		IS_ALL,
+		IS_PARTIAL,
 		NUM_COLUMNS
-	}
-
-	public bool array_equal_func (string[] a, string[] b)
-	{
-		if (a.length == b.length)
-		{
-			for (int i = 0; i < a.length; i++)
-			{
-				if (a[i] != b[i])
-					return false;
-			}
-		}
-
-		else
-			return false;
-
-		return true;
-	}
-
-	public bool list_equal_func (GLib.List<string> a, GLib.List<string> b)
-	{
-		debug ("in list_equal_func");
-
-		if (a.length () == b.length ())
-		{
-			debug ("in if block");
-			for (int i = 0; i < a.length (); i++)
-			{
-				debug ("in for block");
-				if (a.nth_data (i) != b.nth_data (i))
-					return false;
-			}
-		}
-
-		else
-			return false;
-
-		return true;
 	}
 
 	class TagViewer : GLib.Object
 	{
 		public Gtk.TreeView tag_view;
 		private Gtk.ListStore tag_store;
-		private GLib.HashTable<string, GLib.List<string>> tags = new GLib.HashTable<string, GLib.List<string>> (GLib.str_hash, GLib.direct_equal);
-		private GLib.HashTable<string, string> index = new GLib.HashTable<string, string> (GLib.str_hash, GLib.str_equal);
-		private GLib.List<string> photos = new GLib.List<string> ();
+		private Gee.HashMap<string, Gee.ArrayList<string>> tags = new Gee.HashMap<string, Gee.ArrayList<string>> (GLib.str_hash);
+		private Gee.HashMap<string, string> index = new Gee.HashMap<string, string> (GLib.str_hash, GLib.str_equal);
+		private Gee.ArrayList<string> photos = new Gee.ArrayList<string> ();
 		private dynamic DBus.Object metadata_daemon;
 
 		public TagViewer ()
@@ -90,46 +53,38 @@ namespace Snap
 
 		private void set_up_ui ()
 		{
-			try
-			{
-				this.tag_store = new Gtk.ListStore (TagViewerColumns.NUM_COLUMNS,
-					typeof (string),
-					typeof (bool),
-					typeof (bool),
-					-1);
-				this.tag_view = new Gtk.TreeView.with_model (this.tag_store);
+			this.tag_store = new Gtk.ListStore (TagViewerColumns.NUM_COLUMNS,
+				typeof (string),
+				typeof (bool),
+				typeof (bool),
+				-1);
+			this.tag_view = new Gtk.TreeView.with_model (this.tag_store);
 
-				Gtk.CellRendererText text_renderer = new Gtk.CellRendererText ();
-				Gtk.CellRendererToggle toggle_renderer = new Gtk.CellRendererToggle ();
-				Gtk.TreeViewColumn name_column;
-				Gtk.TreeViewColumn is_applied_column;
+			Gtk.CellRendererText text_renderer = new Gtk.CellRendererText ();
+			Gtk.CellRendererToggle toggle_renderer = new Gtk.CellRendererToggle ();
+			Gtk.TreeViewColumn name_column;
+			Gtk.TreeViewColumn is_applied_column;
 
-				text_renderer.ellipsize = Pango.EllipsizeMode.END;
-				toggle_renderer.radio = false;
+			text_renderer.ellipsize = Pango.EllipsizeMode.END;
+			toggle_renderer.radio = false;
 
-				name_column = new Gtk.TreeViewColumn.with_attributes ("Tag",
-					text_renderer,
-					"text",
-					TagViewerColumns.NAME);
-				name_column.expand = true;
-				name_column.sizing = Gtk.TreeViewColumnSizing.FIXED;
+			name_column = new Gtk.TreeViewColumn.with_attributes ("Tag",
+				text_renderer,
+				"text",
+				TagViewerColumns.NAME);
+			name_column.expand = true;
+			name_column.sizing = Gtk.TreeViewColumnSizing.FIXED;
 
-				is_applied_column = new Gtk.TreeViewColumn.with_attributes ("is applied?",
-					toggle_renderer,
-					"active",
-					TagViewerColumns.IS_APPLIED,
-					"inconsistent",
-					TagViewerColumns.IS_ALL);
-				is_applied_column.expand = false;
+			is_applied_column = new Gtk.TreeViewColumn.with_attributes ("is applied?",
+				toggle_renderer,
+				"active",
+				TagViewerColumns.IS_APPLIED,
+				"inconsistent",
+				TagViewerColumns.IS_PARTIAL);
+			is_applied_column.expand = false;
 
-				this.tag_view.append_column (name_column);
-				this.tag_view.append_column (is_applied_column);
-			}
-
-			catch (GLib.Error e)
-			{
-				critical (e.message);
-			}
+			this.tag_view.append_column (name_column);
+			this.tag_view.append_column (is_applied_column);
 		}
 
 		private void set_up_connections ()
@@ -150,37 +105,36 @@ namespace Snap
 			}
 		}
 
-		// Update each of *new_tags* to reflect recent changes in their path lists.
-		private void refresh_tag_store (string[] new_tags)
+		// Update the tag store to reflect recent changes in the path lists.
+		private void refresh_tag_store ()
 		{
-			foreach (string tag in new_tags)
+			foreach (string tag in this.tags.keys)
 			{
-				unowned GLib.List<string> paths = this.tags.lookup (tag);
-				unowned string path_string = this.index.lookup (tag);
+				Gee.ArrayList<string> paths = this.tags.get (tag);
+				string path_string = this.index.get (tag);
 
-				debug ("refreshing %s (%s, %u)", tag, path_string, paths.length ());
 				Gtk.TreeIter iter;
 				this.tag_store.get_iter_from_string (out iter, path_string);
 
-				if (paths.length () < this.photos.length ())
+				if (paths.size < this.photos.size)
 				{
 					// Set the check box to be inconsistent, since not all the selected photos
 					// have this tag.
-					this.tag_store.set (iter, TagViewerColumns.IS_ALL, false, -1);
+					this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, true, -1);
 				}
 
 				else
 				{
 					// Set the check box to be active, since all the selected photos have this
 					// tag.
-					this.tag_store.set (iter, TagViewerColumns.IS_ALL, true, -1);
+					this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, false, -1);
 				}
 			}
 		}
 
 		public void add_photo (string path)
 		{
-			int list_index = this.photos.index (path);
+			int list_index = this.photos.index_of (path);
 
 			if (list_index == -1)
 			{
@@ -188,12 +142,11 @@ namespace Snap
 				// field of the photo's XMP payload.
 				string tag_string = this.metadata_daemon.get_metadata (path, "subject");
 				string[] new_tags = tag_string.split (",");
-				debug ("tags for %s: '%s'", path, tag_string);
 
 				// Add the photo and its tags to the global tag hash.
 				foreach (string tag in new_tags)
 				{
-					unowned GLib.List<string> paths = this.tags.lookup (tag);
+					Gee.ArrayList<string> paths = this.tags.get (tag);
 
 					if (paths == null)
 					{
@@ -208,8 +161,8 @@ namespace Snap
 								tag,
 								TagViewerColumns.IS_APPLIED,
 								true,
-								TagViewerColumns.IS_ALL,
-								true,
+								TagViewerColumns.IS_PARTIAL,
+								false,
 								-1);
 						}
 
@@ -217,21 +170,22 @@ namespace Snap
 							critical ("shit just broke here");
 
 						string path_string = this.tag_store.get_string_from_iter (iter);
-						this.index.insert (tag, path_string);
+						this.index.set (tag, path_string);
 
-						var new_paths = new GLib.List<string> ();
-						new_paths.append (path);
-						this.tags.insert (tag, new_paths.copy ());
+						var new_paths = new Gee.ArrayList<string> ();
+						new_paths.add (path);
+						this.tags.set (tag, new_paths);
 					}
 
 					else
 					{
-						paths.append (path);
+						paths.add (path);
+						this.tags.set (tag, paths);
 					}
 				}
 
-				this.photos.append (path);
-				this.refresh_tag_store (new_tags);
+				this.photos.add (path);
+				this.refresh_tag_store ();
 			}
 		}
 
