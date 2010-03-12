@@ -115,3 +115,14 @@ These daemons include:
   Methods:
     * get_raw (string jpg_path) => string raw_path
     * get_thumb (string jpg_path) => string thumb_path
+
+
+UI Design
+=========
+The interface components should be as modular as possible, implemented as
+reusable widgets. They will consist of the following:
+
+  UI Shell
+  Photo Viewer
+  Tag Viewer
+  Thumb Browser

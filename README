@@ -170,6 +170,11 @@ see: http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/XMP.html
 * IPTC:DocumentNotes (1024 character limit)
 * XMP:cc namespace (all Creative Commons tags)
 * XMP:dc namespace (all Dublin Core tags)
+* XMP.dc.artist
+* XMP.dc.rights
+* XMP.dc.title
+* XMP.dc.description
+* XMP.dc.subject (for tags!)
 * XMP:exif namespace (ideally, these would be synched with EXIF tags)
 * XMP:iptc4xmpCore namespace (all IPTC tags)
 * XMP:iptc4xmpExt namespace (IPTC editing & context tags)

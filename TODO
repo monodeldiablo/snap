@@ -1,5 +1,6 @@
 v0.1.0
 ------
+* fix crasher in snap-metadata-daemon.get_metadata() for ~/test2.jpg
 * moves and deletes are scary (terrifying, actually!)... consider copies and
   moves, respectively, instead
   * "delete" moves to a "trash" directory, which can be purged periodically or
@@ -15,24 +16,6 @@ v0.1.0
 * transition the daemons to XMPL.
   * remove dependencies on Invocation wherever possible
   * explain in detail where not possible
-* design a metadata daemon, too
-  * the tag daemon could just proxy to this, or this might eliminate the tag
-    daemon altogether
-  * ideally, it should be able to modify any valid metadata key
-  * more realistically, it could have translation and amplification for common
-    keys
-    * Artist => Exif.Image.Artist, Xmp.dc.creator
-    * Copyright => Exif.Image.Copyright, Iptc.Application2.Copyright, Xmp.dc.rights
-    * Title => Xmp.dc.title
-    * Description => Exif.Image.ImageDescription, Xmp.dc.description
-    * Keywords (note: these are where the tags are kept) => Iptc.Application2.Keywords, Xmp.dc.subject
-  * better yet, only use one set (Xmp > Iptc > Exif in my mind), simplifying
-    implementation and removing the need to keep lots of different sets of
-    metadata in sync
-    * this means I could just use exempi, I do believe (although some EXIF
-      parsing is still necessary to retrieve Exif.SubSecTime)
-    * the other upside is that Tracker already indexes these (Xmp.dc.creator,
-      Xmp.dc.subject) and exempi is already an optional dependency for Nautilus
 * decide if daemons should be handed full paths or "ideal" paths (e.g.
   '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
   or 'raw') and the suffix (e.g. '.jpg' or '.nef')...
