@@ -101,7 +101,7 @@ namespace Snap
 
 				if (!this.tags.has_key (tag))
 				{
-					this.tags.set (tag, new Gee.ArrayList<string> ());
+					this.tags [tag] = new Gee.ArrayList<string> ();
 				}
 			}
 
@@ -110,11 +110,15 @@ namespace Snap
 			{
 				foreach (string tag in this.tags.keys)
 				{
-					tag_array.add (tag);
+					if (!tag_array.contains (tag))
+					{
+						tag_array.add (tag);
+					}
 				}
 
-				bool ret = this.preferences_daemon.set_preference ("tag-list",
-					string.joinv (",", tag_array.to_array ()));
+				string [] new_tag_array = tag_array.to_array ();
+				new_tag_array += null;
+				bool ret = this.preferences_daemon.set_preference ("tag-list", string.joinv (",", new_tag_array));
 			}
 		}
 
@@ -137,8 +141,6 @@ namespace Snap
 			Gtk.TreeViewColumn is_applied_column;
 
 			text_renderer.ellipsize = Pango.EllipsizeMode.END;
-			//toggle_renderer.activatable = true;
-			//toggle_renderer.sensitive = true;
 			toggle_renderer.toggled += this.handle_toggled;
 
 			name_column = new Gtk.TreeViewColumn.with_attributes ("Tag",
@@ -171,7 +173,7 @@ namespace Snap
 			{
 				Gtk.TreeIter iter;
 				this.tag_store.append (out iter);
-				Gee.ArrayList<string> paths = this.tags.get (tag);
+				Gee.ArrayList<string> paths = this.tags [tag];
 
 				this.tag_store.set (iter, TagViewerColumns.NAME, tag, -1);
 
@@ -230,15 +232,16 @@ namespace Snap
 		// to be useful!
 		private void handle_tagging_request_succeeded (dynamic DBus.Object daemon, uint request_id)
 		{
+
 			if (this.add_list.has_key (request_id))
 			{
-				TagRequest tr = this.add_list.get (request_id);
-				Gee.ArrayList<string> paths = this.tags.get (tr.tag);
+				TagRequest tr = this.add_list [request_id];
+				Gee.ArrayList<string> paths = this.tags [tr.tag];
 
 				if (!paths.contains (tr.path))
 				{
 					paths.add (tr.path);
-					this.tags.set (tr.tag, paths);
+					this.tags [tr.tag] = paths;
 				}
 
 				this.add_list.unset (request_id);
@@ -246,14 +249,13 @@ namespace Snap
 
 			else if (this.remove_list.has_key (request_id))
 			{
-				TagRequest tr = this.remove_list.get (request_id);
-				Gee.ArrayList<string> paths = this.tags.get (tr.tag);
-				int path_id = paths.index_of (tr.path);
+				TagRequest tr = this.remove_list [request_id];
+				Gee.ArrayList<string> paths = this.tags [tr.tag];
 
-				if (path_id != -1)
+				if (paths.contains (tr.path))
 				{
-					paths.remove_at (path_id);
-					this.tags.set (tr.tag, paths);
+					paths.remove (tr.path);
+					this.tags [tr.tag] = paths;
 				}
 
 				this.remove_list.unset (request_id);
@@ -269,21 +271,22 @@ namespace Snap
 				// Fetch tags from the photo, which are stored in the 'DC.Subject'
 				// field of the photo's XMP payload.
 				string tag_string = this.metadata_daemon.get_metadata (path, "subject");
-				string[] new_tags = tag_string.split (",");
+				string [] new_tags = tag_string.split (",");
 
 				// Add the photo and its tags to the global tag hash.
 				foreach (string tag in new_tags)
 				{
-					Gee.ArrayList<string> paths = this.tags.get (tag);
+					Gee.ArrayList<string> paths = this.tags [tag];
 
 					if (paths == null)
 						paths = new Gee.ArrayList<string> ();
 
 					paths.add (path);
-					this.tags.set (tag, paths);
+					this.tags [tag] = paths;
 				}
 
 				this.photos.add (path);
+				this.sync_tag_list ();
 				this.refresh_tag_store ();
 			}
 		}
@@ -292,12 +295,13 @@ namespace Snap
 		{
 			foreach (string tag in this.tags.keys)
 			{
-				Gee.ArrayList<string> paths = this.tags.get (tag);
+				Gee.ArrayList<string> paths = this.tags [tag];
 				paths.remove (path);
-				this.tags.set (tag, paths);
+				this.tags [tag] = paths;
 			}
 
 			this.photos.remove (path);
+			this.sync_tag_list ();
 			this.refresh_tag_store ();
 		}
 
@@ -305,41 +309,49 @@ namespace Snap
 		{
 			foreach (string tag in this.tags.keys)
 			{
-				Gee.ArrayList<string> paths = this.tags.get (tag);
+				Gee.ArrayList<string> paths = this.tags [tag];
 				paths.clear ();
-				this.tags.set (tag, paths);
+				this.tags [tag] = paths;
 			}
 
 			this.photos.clear ();
+			this.sync_tag_list ();
 			this.refresh_tag_store ();
 		}
 
 		public void tag (string tag)
 		{
-			string[] path_array = this.photos.to_array ();
-			uint[] request_ids = this.metadata_daemon.append_metadata (path_array, "subject", tag);
+			string [] paths = {};
+
+			foreach (string path in this.photos)
+			{
+				if (!this.tags [tag].contains (path))
+				{
+					paths += path;
+				}
+			}
+
+			paths += null;
+			uint [] request_ids = this.metadata_daemon.append_metadata (paths, "subject", tag);
 
 			for (int i = 0; i < request_ids.length; i++)
 			{
-				TagRequest tr = new TagRequest (tag, path_array[i]);
-				this.add_list.set (request_ids[i], tr);
+				TagRequest tr = new TagRequest (tag, paths [i]);
+				this.add_list [request_ids [i]] = tr;
 			}
-
-			this.sync_tag_list ();
 		}
 
 		public void untag (string tag)
 		{
-			string[] path_array = this.photos.to_array ();
-			uint[] request_ids = this.metadata_daemon.remove_metadata (path_array, "subject", tag);
+			string [] paths = this.photos.to_array ();
+			paths += null;
+			uint [] request_ids = this.metadata_daemon.remove_metadata (paths, "subject", tag);
 
 			for (int i = 0; i < request_ids.length; i++)
 			{
-				TagRequest tr = new TagRequest (tag, path_array[i]);
-				this.remove_list.set (request_ids[i], tr);
+				TagRequest tr = new TagRequest (tag, paths [i]);
+				this.remove_list [request_ids [i]] = tr;
 			}
-
-			this.sync_tag_list ();
 		}
 
 	}
@@ -348,7 +360,7 @@ namespace Snap
 	{
 		public TagViewer tag_viewer;
 
-		public TagViewerTest (string[] args)
+		public TagViewerTest (string [] args)
 		{
 			this.set_default_size (800, 600);
 			this.tag_viewer = new TagViewer ();
@@ -358,7 +370,7 @@ namespace Snap
 
 			for (int i = 1; i < args.length; ++i)
 			{
-				tag_viewer.add_photo (args[i]);
+				tag_viewer.add_photo (args [i]);
 			}
 
 			this.show_all ();
@@ -370,7 +382,7 @@ namespace Snap
 			Gtk.main_quit ();
 		}
 
-		public static void main (string[] args)
+		public static void main (string [] args)
 		{
 			Gtk.init (ref args);
 
