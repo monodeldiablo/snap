@@ -36,20 +36,88 @@ namespace Snap
 		NUM_COLUMNS
 	}
 
+	public class TagRequest : GLib.Object
+	{
+		public string tag;
+		public string path;
+
+		public TagRequest (string tag, string path)
+		{
+			this.tag = tag;
+			this.path = path;
+		}
+	}
+
 	class TagViewer : GLib.Object
 	{
 		public Gtk.TreeView tag_view;
 		private Gtk.ListStore tag_store;
 		private Gee.HashMap<string, Gee.ArrayList<string>> tags = new Gee.HashMap<string, Gee.ArrayList<string>> (GLib.str_hash);
-		private Gee.HashMap<string, string> index = new Gee.HashMap<string, string> (GLib.str_hash, GLib.str_equal);
+		private Gee.HashMap<uint, TagRequest> add_list = new Gee.HashMap<uint, TagRequest> (GLib.direct_hash);
+		private Gee.HashMap<uint, TagRequest> remove_list = new Gee.HashMap<uint, TagRequest> (GLib.direct_hash);
 		private Gee.ArrayList<string> photos = new Gee.ArrayList<string> ();
+		private dynamic DBus.Object preferences_daemon;
 		private dynamic DBus.Object metadata_daemon;
 
 		public TagViewer ()
 		{
-			this.set_up_ui ();
 			this.set_up_connections ();
+			this.set_up_ui ();
+			this.sync_tag_list ();
+
+			// FIXME: Write a signal hookup method, too!
+			this.metadata_daemon.RequestSucceeded += handle_tagging_request_succeeded;
 		}
+
+		private void set_up_connections ()
+		{
+			try
+			{
+				DBus.Connection conn;
+
+				conn = DBus.Bus.get (DBus.BusType.SESSION);
+				this.preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
+					"/org/washedup/Snap/Preferences",
+					"org.washedup.Snap.Preferences");
+				this.metadata_daemon = conn.get_object ("org.washedup.Snap.Metadata",
+					"/org/washedup/Snap/Metadata",
+					"org.washedup.Snap.Metadata");
+			}
+
+			catch (DBus.Error e)
+			{
+				critical (e.message);
+			}
+		}
+
+		private void sync_tag_list ()
+		{
+			string tag_string = this.preferences_daemon.get_preference ("tag-list");
+			Gee.ArrayList<string> tag_array = new Gee.ArrayList<string> ();
+
+			foreach (string tag in tag_string.split (","))
+			{
+				tag_array.add (tag);
+
+				if (!this.tags.has_key (tag))
+				{
+					this.tags.set (tag, new Gee.ArrayList<string> ());
+				}
+			}
+
+			// If there's a tag in the local list that's not in the global list, add it.
+			if (tag_array.size < this.tags.size)
+			{
+				foreach (string tag in this.tags.keys)
+				{
+					tag_array.add (tag);
+				}
+
+				bool ret = this.preferences_daemon.set_preference ("tag-list",
+					string.joinv (",", tag_array.to_array ()));
+			}
+		}
+
 
 		private void set_up_ui ()
 		{
@@ -59,6 +127,9 @@ namespace Snap
 				typeof (bool),
 				-1);
 			this.tag_view = new Gtk.TreeView.with_model (this.tag_store);
+			this.tag_view.rules_hint = true;
+			this.tag_view.search_column = 0;
+			this.tag_view.tooltip_column = 0;
 
 			Gtk.CellRendererText text_renderer = new Gtk.CellRendererText ();
 			Gtk.CellRendererToggle toggle_renderer = new Gtk.CellRendererToggle ();
@@ -66,16 +137,17 @@ namespace Snap
 			Gtk.TreeViewColumn is_applied_column;
 
 			text_renderer.ellipsize = Pango.EllipsizeMode.END;
-			toggle_renderer.radio = false;
+			//toggle_renderer.activatable = true;
+			//toggle_renderer.sensitive = true;
+			toggle_renderer.toggled += this.handle_toggled;
 
 			name_column = new Gtk.TreeViewColumn.with_attributes ("Tag",
 				text_renderer,
 				"text",
 				TagViewerColumns.NAME);
 			name_column.expand = true;
-			name_column.sizing = Gtk.TreeViewColumnSizing.FIXED;
 
-			is_applied_column = new Gtk.TreeViewColumn.with_attributes ("is applied?",
+			is_applied_column = new Gtk.TreeViewColumn.with_attributes ("applies?",
 				toggle_renderer,
 				"active",
 				TagViewerColumns.IS_APPLIED,
@@ -87,56 +159,112 @@ namespace Snap
 			this.tag_view.append_column (is_applied_column);
 		}
 
-		private void set_up_connections ()
-		{
-			try
-			{
-				DBus.Connection conn;
-
-				conn = DBus.Bus.get (DBus.BusType.SESSION);
-				this.metadata_daemon = conn.get_object ("org.washedup.Snap.Metadata",
-					"/org/washedup/Snap/Metadata",
-					"org.washedup.Snap.Metadata");
-			}
-			
-			catch (DBus.Error e)
-			{
-				critical (e.message);
-			}
-		}
-
 		// Update the tag store to reflect recent changes in the path lists.
+		// FIXME: Don't clear and repopulate the list... that's stupid.
 		private void refresh_tag_store ()
 		{
+			// Disconnect the ListStore from the TreeView to speed up operations.
+			this.tag_view.model = null;
+			this.tag_store.clear ();
+
 			foreach (string tag in this.tags.keys)
 			{
-				Gee.ArrayList<string> paths = this.tags.get (tag);
-				string path_string = this.index.get (tag);
-
 				Gtk.TreeIter iter;
-				this.tag_store.get_iter_from_string (out iter, path_string);
+				this.tag_store.append (out iter);
+				Gee.ArrayList<string> paths = this.tags.get (tag);
 
+				this.tag_store.set (iter, TagViewerColumns.NAME, tag, -1);
+
+				// If fewer than all of the photos bear this tag, mark it as partially
+				// applicable.
 				if (paths.size < this.photos.size)
 				{
-					// Set the check box to be inconsistent, since not all the selected photos
-					// have this tag.
-					this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, true, -1);
-				}
+					if (paths.size == 0)
+					{
+						this.tag_store.set (iter, TagViewerColumns.IS_APPLIED, false, -1);
+						this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, false, -1);
+					}
 
+					else
+					{
+						this.tag_store.set (iter, TagViewerColumns.IS_APPLIED, true, -1);
+						this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, true, -1);
+					}
+				}
 				else
 				{
-					// Set the check box to be active, since all the selected photos have this
-					// tag.
+					this.tag_store.set (iter, TagViewerColumns.IS_APPLIED, true, -1);
 					this.tag_store.set (iter, TagViewerColumns.IS_PARTIAL, false, -1);
 				}
 			}
+
+			// Reattach the ListStore to the TreeView.
+			this.tag_view.model = this.tag_store;
+			this.tag_view.show_all ();
+		}
+
+		private void handle_toggled (string path)
+		{
+			Gtk.TreeIter iter;
+			GLib.Value tag;
+			GLib.Value applied;
+			GLib.Value partial;
+
+			this.tag_store.get_iter_from_string (out iter, path);
+			this.tag_store.get_value (iter, TagViewerColumns.NAME, out tag);
+			this.tag_store.get_value (iter, TagViewerColumns.IS_APPLIED, out applied);
+			this.tag_store.get_value (iter, TagViewerColumns.IS_PARTIAL, out partial);
+
+			if ((bool) applied && !(bool) partial)
+			{
+				this.untag ((string) tag);
+			}
+
+			else
+			{
+				this.tag ((string) tag);
+			}
+		}
+
+		// this.add_list and this.remove_list need to also capture the path in order
+		// to be useful!
+		private void handle_tagging_request_succeeded (dynamic DBus.Object daemon, uint request_id)
+		{
+			if (this.add_list.has_key (request_id))
+			{
+				TagRequest tr = this.add_list.get (request_id);
+				Gee.ArrayList<string> paths = this.tags.get (tr.tag);
+
+				if (!paths.contains (tr.path))
+				{
+					paths.add (tr.path);
+					this.tags.set (tr.tag, paths);
+				}
+
+				this.add_list.unset (request_id);
+			}
+
+			else if (this.remove_list.has_key (request_id))
+			{
+				TagRequest tr = this.remove_list.get (request_id);
+				Gee.ArrayList<string> paths = this.tags.get (tr.tag);
+				int path_id = paths.index_of (tr.path);
+
+				if (path_id != -1)
+				{
+					paths.remove_at (path_id);
+					this.tags.set (tr.tag, paths);
+				}
+
+				this.remove_list.unset (request_id);
+			}
+
+			this.refresh_tag_store ();
 		}
 
 		public void add_photo (string path)
 		{
-			int list_index = this.photos.index_of (path);
-
-			if (list_index == -1)
+			if (!this.photos.contains (path))
 			{
 				// Fetch tags from the photo, which are stored in the 'DC.Subject'
 				// field of the photo's XMP payload.
@@ -149,39 +277,10 @@ namespace Snap
 					Gee.ArrayList<string> paths = this.tags.get (tag);
 
 					if (paths == null)
-					{
-						Gtk.TreeIter iter;
+						paths = new Gee.ArrayList<string> ();
 
-						this.tag_store.append (out iter);
-
-						if (this.tag_store.iter_is_valid (iter))
-						{
-							this.tag_store.set (iter,
-								TagViewerColumns.NAME,
-								tag,
-								TagViewerColumns.IS_APPLIED,
-								true,
-								TagViewerColumns.IS_PARTIAL,
-								false,
-								-1);
-						}
-
-						else
-							critical ("shit just broke here");
-
-						string path_string = this.tag_store.get_string_from_iter (iter);
-						this.index.set (tag, path_string);
-
-						var new_paths = new Gee.ArrayList<string> ();
-						new_paths.add (path);
-						this.tags.set (tag, new_paths);
-					}
-
-					else
-					{
-						paths.add (path);
-						this.tags.set (tag, paths);
-					}
+					paths.add (path);
+					this.tags.set (tag, paths);
 				}
 
 				this.photos.add (path);
@@ -189,24 +288,81 @@ namespace Snap
 			}
 		}
 
-		//public void remove_photo (string path) {}
-		//public void clear () {}
+		public void remove_photo (string path)
+		{
+			foreach (string tag in this.tags.keys)
+			{
+				Gee.ArrayList<string> paths = this.tags.get (tag);
+				paths.remove (path);
+				this.tags.set (tag, paths);
+			}
+
+			this.photos.remove (path);
+			this.refresh_tag_store ();
+		}
+
+		public void clear_photos ()
+		{
+			foreach (string tag in this.tags.keys)
+			{
+				Gee.ArrayList<string> paths = this.tags.get (tag);
+				paths.clear ();
+				this.tags.set (tag, paths);
+			}
+
+			this.photos.clear ();
+			this.refresh_tag_store ();
+		}
+
+		public void tag (string tag)
+		{
+			string[] path_array = this.photos.to_array ();
+			uint[] request_ids = this.metadata_daemon.append_metadata (path_array, "subject", tag);
+
+			for (int i = 0; i < request_ids.length; i++)
+			{
+				TagRequest tr = new TagRequest (tag, path_array[i]);
+				this.add_list.set (request_ids[i], tr);
+			}
+
+			this.sync_tag_list ();
+		}
+
+		public void untag (string tag)
+		{
+			string[] path_array = this.photos.to_array ();
+			uint[] request_ids = this.metadata_daemon.remove_metadata (path_array, "subject", tag);
+
+			for (int i = 0; i < request_ids.length; i++)
+			{
+				TagRequest tr = new TagRequest (tag, path_array[i]);
+				this.remove_list.set (request_ids[i], tr);
+			}
+
+			this.sync_tag_list ();
+		}
+
 	}
 
 	class TagViewerTest : Gtk.Window
 	{
+		public TagViewer tag_viewer;
+
 		public TagViewerTest (string[] args)
 		{
 			this.set_default_size (800, 600);
-			var tv = new TagViewer ();
+			this.tag_viewer = new TagViewer ();
 
-			this.add (tv.tag_view);
+			this.add (tag_viewer.tag_view);
 			this.destroy += this.quit;
 
 			for (int i = 1; i < args.length; ++i)
 			{
-				tv.add_photo (args[i]);
+				tag_viewer.add_photo (args[i]);
 			}
+
+			this.show_all ();
+			this.tag_viewer.tag_view.show_all ();
 		}
 
 		public void quit ()
@@ -217,8 +373,9 @@ namespace Snap
 		public static void main (string[] args)
 		{
 			Gtk.init (ref args);
-			var tv = new TagViewerTest (args);
-			tv.show_all ();
+
+			new TagViewerTest (args);
+
 			Gtk.main ();
 		}
 	}

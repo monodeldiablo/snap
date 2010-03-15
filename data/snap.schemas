@@ -8,10 +8,6 @@
       <locale name="C">
         <short>The root photo directory</short>
       </locale>
-
-      <locale name="es">
-        <short>El directorio baso de los photos</short>
-      </locale>
     </schema>
     <schema>
       <key>/schemas/apps/snap/window-width</key>
@@ -21,10 +17,6 @@
       <default>800</default>
       <locale name="C">
         <short>The width (in pixels) of the application window</short>
-      </locale>
-
-      <locale name="es">
-        <short>El width (en pixels) de la venta de la applicación</short>
       </locale>
     </schema>
     <schema>
@@ -36,10 +28,6 @@
       <locale name="C">
         <short>The height (in pixels) of the application window</short>
       </locale>
-
-      <locale name="es">
-        <short>El alto (en pixels) de la venta de la applicación</short>
-      </locale>
     </schema>
     <schema>
       <key>/schemas/apps/snap/daemon-lifetime</key>
@@ -50,10 +38,6 @@
       <locale name="C">
         <short>The time (in seconds) that a daemon lives after its last request is processed</short>
       </locale>
-
-      <locale name="es">
-        <short>El tiempo (en segundos) que vive un daemon después de la ultima requesto está procesado</short>
-      </locale>
     </schema>
     <schema>
       <key>/schemas/apps/snap/default-artist</key>
@@ -62,10 +46,6 @@
       <type>string</type>
       <locale name="C">
         <short>The author name to insert by default into imported photo metadata</short>
-      </locale>
-
-      <locale name="es">
-        <short>El nombre de (el/la) artista para insertar en la metadata de los fotos importados</short>
       </locale>
     </schema>
     <schema>
@@ -76,9 +56,14 @@
       <locale name="C">
         <short>The copyright to insert by default into imported photo metadata</short>
       </locale>
-
-      <locale name="es">
-        <short>Los derechos reservados para insertar en la metadata de los fotos importados</short>
+    </schema>
+    <schema>
+      <key>/schemas/apps/snap/tag-list</key>
+      <applyto>/apps/snap/tag-list</applyto>
+      <owner>snap</owner>
+      <type>string</type>
+      <locale name="C">
+        <short>The full list of tags</short>
       </locale>
     </schema>
   </schemalist>
