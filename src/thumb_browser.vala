@@ -35,14 +35,49 @@ namespace Snap
 		NUM_COLUMNS
 	}
 
-	class ThumbBrowser : GLib.Object
+	public class ThumbBrowser : GLib.Object
 	{
 		public Gtk.IconView view;
 		public Gtk.ListStore store;
+		private dynamic DBus.Object preferences_daemon;
+
+		public signal void selected (string [] paths);
+		public signal void activated (string path);
 
 		public ThumbBrowser ()
 		{
+			this.set_up_connections ();
 			this.set_up_ui ();
+
+			// FIXME: WTF?!
+			/*
+			string photo_directory = this.preferences_daemon.get_preference ("photo-directory");
+			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				photo_directory,
+				"thumb");
+
+			GLib.FileEnumerator thumbs = GLib.File.new_for_path (thumb_dir).enumerate_children ("*",
+				GLib.FileQueryInfoFlags.NONE,
+				null);
+			*/
+		}
+
+		private void set_up_connections ()
+		{
+			try
+			{
+				DBus.Connection conn;
+
+				conn = DBus.Bus.get (DBus.BusType.SESSION);
+				this.preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
+					"/org/washedup/Snap/Preferences",
+					"org.washedup.Snap.Preferences");
+			}
+
+			catch (DBus.Error e)
+			{
+				critical (e.message);
+			}
 		}
 
 		private void set_up_ui ()
@@ -55,6 +90,38 @@ namespace Snap
 			this.view.tooltip_column = ThumbBrowserColumns.PATH;
 			this.view.pixbuf_column = ThumbBrowserColumns.PIXBUF;
 			this.view.selection_mode = Gtk.SelectionMode.MULTIPLE;
+
+			this.view.selection_changed += this.handle_selection_changed;
+			this.view.item_activated += this.handle_item_activated;
+		}
+
+		private void handle_selection_changed ()
+		{
+			GLib.List<Gtk.TreePath> selection = this.view.get_selected_items ();
+			string [] paths = {};
+			Gtk.TreeIter iter;
+			GLib.Value file;
+
+			foreach (Gtk.TreePath path in selection)
+			{
+				this.store.get_iter (out iter, path);
+				this.store.get_value (iter, ThumbBrowserColumns.PATH, out file);
+
+				paths += (string) file;
+			}
+
+			this.selected (paths);
+		}
+
+		private void handle_item_activated (Gtk.TreePath path)
+		{
+			Gtk.TreeIter iter;
+			GLib.Value file;
+
+			this.store.get_iter (out iter, path);
+			this.store.get_value (iter, ThumbBrowserColumns.PATH, out file);
+
+			this.activated ((string) file);
 		}
 
 		// FIXME: Think this out a little more and make it work for thumbs, while
@@ -62,7 +129,8 @@ namespace Snap
 		public void add_photo (string path)
 		{
 			Gtk.TreeIter iter;
-			Gdk.Pixbuf pixbuf = new Gdk.Pixbuf.from_file_at_scale (path, 72, 72, true);
+			// FIXME: CONSTANT ALERT!! 128 => THUMB_SIZE
+			Gdk.Pixbuf pixbuf = new Gdk.Pixbuf.from_file_at_scale (path, 128, 128, true);
 
 			this.store.append (out iter);
 			this.store.set (iter,
@@ -71,65 +139,6 @@ namespace Snap
 				ThumbBrowserColumns.PIXBUF,
 				pixbuf,
 				-1);
-		}
-	}
-
-	class ThumbBrowserTest : Gtk.Window
-	{
-		public Gtk.HPaned hpaned;
-		public ThumbBrowser thumb_browser;
-		public TagViewer tag_viewer;
-
-		public ThumbBrowserTest (string [] args)
-		{
-			this.thumb_browser = new ThumbBrowser ();
-			this.tag_viewer = new TagViewer ();
-			this.hpaned = new Gtk.HPaned ();
-			this.hpaned.pack1 (this.tag_viewer.view, true, true);
-			this.hpaned.pack2 (this.thumb_browser.view, true, true);
-			this.add (this.hpaned);
-			this.set_default_size (800, 600);
-
-			for (int i = 1; i < args.length; ++i)
-			{
-				thumb_browser.add_photo (args [i]);
-			}
-
-			this.show_all ();
-			this.thumb_browser.view.show_all ();
-			this.thumb_browser.view.selection_changed += this.handle_selection_changed;
-			this.destroy += this.quit;
-		}
-
-		private void handle_selection_changed ()
-		{
-			this.tag_viewer.clear_photos ();
-
-			GLib.List<Gtk.TreePath> selection = this.thumb_browser.view.get_selected_items ();
-
-			foreach (Gtk.TreePath path in selection)
-			{
-				Gtk.TreeIter iter;
-				GLib.Value file;
-
-				this.thumb_browser.store.get_iter (out iter, path);
-				this.thumb_browser.store.get_value (iter, ThumbBrowserColumns.PATH, out file);
-				this.tag_viewer.add_photo ((string) file);
-			}
-		}
-
-		public void quit ()
-		{
-			Gtk.main_quit ();
-		}
-
-		public static void main (string [] args)
-		{
-			Gtk.init (ref args);
-
-			new ThumbBrowserTest (args);
-
-			Gtk.main ();
 		}
 	}
 }

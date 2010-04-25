@@ -1,14 +1,5 @@
 v0.1.0
 ------
-* make processing IDs more unique than per-service (to continue to be unique
-  even after service restarts)
-* remove explicit UI file path from PhotoViewer
-* incorporate PhotoViewer and TagViewer into the build system
-* write PhotoBrowser (taking a date range as arguments?)
-* moves and deletes are scary (terrifying, actually!)... consider copies and
-  moves, respectively, instead
-  * "delete" moves to a "trash" directory, which can be purged periodically or
-    browsed and reinstated (via the import API!)
 * implement duplicate checking in the import daemon!
   * check out Gio.File.equal () & Gio.File.hash ()
   * check file size (why?)
@@ -17,6 +8,17 @@ v0.1.0
     * if the user says "yes", then ignore the photo & don't import
     * if the user says "no", then increment the destination number (add 1 to
       the subsecond part of the file name) and continue
+* integrate ThumbBrowser & PhotoViewer with the RotateDaemon
+* integrate with Tracker (tracker-client)
+  * learn SPARQL
+  * figure out which queries are necessary/desired
+  * abandon XMPL & invocation in favor of Tracker writeback (!!)
+* make processing IDs more unique than per-service (to continue to be unique
+  even after service restarts)
+* moves and deletes are scary (terrifying, actually!)... consider copies and
+  moves, respectively, instead
+  * "delete" moves to a "trash" directory, which can be purged periodically or
+    browsed and reinstated (via the import API!)
 * decide if daemons should be handed full paths or "ideal" paths (e.g.
   '20091214_12345678'), from which they'll have to derive the root (e.g. 'jpg'
   or 'raw') and the suffix (e.g. '.jpg' or '.nef')...

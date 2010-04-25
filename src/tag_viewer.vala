@@ -48,7 +48,7 @@ namespace Snap
 		}
 	}
 
-	class TagViewer : GLib.Object
+	public class TagViewer : GLib.Object
 	{
 		public Gtk.TreeView view;
 		private Gtk.ListStore store;

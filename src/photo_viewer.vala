@@ -26,7 +26,7 @@ using Gtk;
 
 namespace Snap
 {
-	class PhotoViewer : GLib.Object
+	public class PhotoViewer : GLib.Object
 	{
 		private Gtk.Builder ui;
 		public Gtk.VBox container;
@@ -40,6 +40,7 @@ namespace Snap
 		private Gtk.Action zoom_fit_action;
 		private Gtk.Action rotate_left_action;
 		private Gtk.Action rotate_right_action;
+		private Gtk.Action leave_action;
 
 		private string photo_path;
 		private Gdk.Pixbuf pixbuf;
@@ -47,6 +48,7 @@ namespace Snap
 
 		public signal void loaded ();
 		public signal void error (string reason);
+		public signal void finished ();
 
 		public PhotoViewer (string path)
 		{
@@ -54,8 +56,11 @@ namespace Snap
 
 			try
 			{
+				string ui_path = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+					Config.PACKAGE_DATADIR,
+					"photo_viewer.ui");
 				this.ui = new Builder ();
-				this.ui.add_from_file ("/home/brian/Projects/Public/snap/data/photo_viewer.ui");
+				this.ui.add_from_file (ui_path);
 
 				this.container = (Gtk.VBox) this.ui.get_object ("container");
 				this.toolbar = (Gtk.Toolbar) this.ui.get_object ("toolbar");
@@ -68,6 +73,7 @@ namespace Snap
 				this.zoom_fit_action = (Gtk.Action) this.ui.get_object ("zoom_fit_action");
 				this.rotate_left_action = (Gtk.Action) this.ui.get_object ("rotate_left_action");
 				this.rotate_right_action = (Gtk.Action) this.ui.get_object ("rotate_right_action");
+				this.leave_action = (Gtk.Action) this.ui.get_object ("leave_action");
 
 				this.connect_signals ();
 				this.load_image ();
@@ -75,7 +81,7 @@ namespace Snap
 
 			catch (GLib.Error e)
 			{
-				this.error (e.message);
+				error (e.message);
 			}
 		}
 
@@ -87,6 +93,13 @@ namespace Snap
 			this.zoom_fit_action.activate += this.zoom_best_fit;
 			this.rotate_left_action.activate += this.rotate_left;
 			this.rotate_right_action.activate += this.rotate_right;
+
+			this.leave_action.activate += this.handle_finished;
+		}
+
+		private void handle_finished ()
+		{
+			this.finished ();
 		}
 
 		private void load_image ()
@@ -148,6 +161,9 @@ namespace Snap
 			this.zoom ();
 		}
 
+		// FIXME: This should actually rotate the image (i.e. send a request to the
+		//        RotateDaemon) and update the the thumb browser (which will probably
+		//        be listening for rotate signals from the RotateDaemon).
 		public void rotate_left ()
 		{
 			this.pixbuf = this.pixbuf.rotate_simple (Gdk.PixbufRotation.COUNTERCLOCKWISE);

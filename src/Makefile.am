@@ -9,11 +9,12 @@ AM_CPPFLAGS = \
 AM_VALAFLAGS = \
 	--thread \
 	--vapidir $(top_srcdir)/vapi \
-	--pkg config \
 	--pkg dbus-glib-1 \
 	--pkg gconf-2.0 \
 	--pkg gtk+-2.0 \
 	--pkg gio-2.0 \
+	--pkg gee-1.0 \
+	--pkg config \
 	--pkg xmpl \
 	$(NULL)
 
@@ -24,6 +25,7 @@ bin_PROGRAMS = \
 	snap-delete-daemon \
 	snap-metadata-daemon \
 	snap-preferences-daemon \
+	snap \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \
@@ -86,6 +88,17 @@ snap_preferences_daemon_SOURCES = \
 	$(NULL)
 
 snap_preferences_daemon_LDADD = \
+	$(SNAP_LIBS) \
+	$(NULL)
+
+snap_SOURCES = \
+	photo_viewer.vala \
+	tag_viewer.vala \
+	thumb_browser.vala \
+	snap.vala \
+	$(NULL)
+
+snap_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 
