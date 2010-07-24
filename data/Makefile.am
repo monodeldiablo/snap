@@ -4,6 +4,7 @@ snapdir = ${pkgdatadir}
 snap_DATA = \
 	snap.svg \
 	main.ui \
+	importer.ui \
 	photo_viewer.ui \
 	preferences.ui \
 	$(NULL)

@@ -174,20 +174,20 @@ namespace Snap
 			debug ("photo_directory: %s", this.photo_directory);
 
 			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-			                                   this.photo_directory,
-			                                   quality,
-							   year,
-							   month,
-							   day);
+				this.photo_directory,
+				quality,
+				year,
+				month,
+				day);
 			debug ("dir: %s", dir);
 			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
-			                                                month,
-									day,
-									hour,
-									minute,
-									second,
-									subsecond,
-									suffix);
+				month,
+				day,
+				hour,
+				minute,
+				second,
+				subsecond,
+				suffix);
 			debug ("file: %s", file_name);
 
 			return GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S, dir, file_name);
