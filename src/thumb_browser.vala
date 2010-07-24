@@ -91,8 +91,8 @@ namespace Snap
 			this.view.pixbuf_column = ThumbBrowserColumns.PIXBUF;
 			this.view.selection_mode = Gtk.SelectionMode.MULTIPLE;
 
-			this.view.selection_changed += this.handle_selection_changed;
-			this.view.item_activated += this.handle_item_activated;
+			this.view.selection_changed.connect (this.handle_selection_changed);
+			this.view.item_activated.connect (this.handle_item_activated);
 		}
 
 		private void handle_selection_changed ()
@@ -129,16 +129,25 @@ namespace Snap
 		public void add_photo (string path)
 		{
 			Gtk.TreeIter iter;
-			// FIXME: CONSTANT ALERT!! 128 => THUMB_SIZE
-			Gdk.Pixbuf pixbuf = new Gdk.Pixbuf.from_file_at_scale (path, 128, 128, true);
 
-			this.store.append (out iter);
-			this.store.set (iter,
-				ThumbBrowserColumns.PATH,
-				path,
-				ThumbBrowserColumns.PIXBUF,
-				pixbuf,
-				-1);
+			try
+			{
+				// FIXME: CONSTANT ALERT!! 128 => THUMB_SIZE
+				Gdk.Pixbuf pixbuf = new Gdk.Pixbuf.from_file_at_scale (path, 128, 128, true);
+
+				this.store.append (out iter);
+				this.store.set (iter,
+					ThumbBrowserColumns.PATH,
+					path,
+					ThumbBrowserColumns.PIXBUF,
+					pixbuf,
+					-1);
+			}
+
+			catch (GLib.Error e)
+			{
+				error (e.message);
+			}
 		}
 	}
 }

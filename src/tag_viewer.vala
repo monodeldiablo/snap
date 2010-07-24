@@ -67,7 +67,7 @@ namespace Snap
 			this.refresh_store ();
 
 			// FIXME: Write a signal hookup method, too!
-			this.metadata_daemon.RequestSucceeded += handle_tagging_request_succeeded;
+			this.metadata_daemon.RequestSucceeded.connect (handle_tagging_request_succeeded);
 		}
 
 		private void set_up_connections ()
@@ -142,7 +142,7 @@ namespace Snap
 			Gtk.TreeViewColumn is_applied_column;
 
 			text_renderer.ellipsize = Pango.EllipsizeMode.END;
-			toggle_renderer.toggled += this.handle_toggled;
+			toggle_renderer.toggled.connect (this.handle_toggled);
 
 			name_column = new Gtk.TreeViewColumn.with_attributes ("Tag",
 				text_renderer,
@@ -367,7 +367,7 @@ namespace Snap
 			this.viewer = new TagViewer ();
 
 			this.add (this.viewer.view);
-			this.destroy += this.quit;
+			this.destroy.connect (this.quit);
 
 			for (int i = 1; i < args.length; ++i)
 			{

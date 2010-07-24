@@ -58,9 +58,9 @@ namespace Snap
 				thumb_browser.add_photo (args [i]);
 			}
 
-			this.thumb_browser.selected += this.handle_selected;
-			this.thumb_browser.activated += this.handle_activated;
-			this.destroy += this.quit;
+			this.thumb_browser.selected.connect (this.handle_selected);
+			this.thumb_browser.activated.connect (this.handle_activated);
+			this.destroy.connect (this.quit);
 
 			this.show_all ();
 			this.thumb_browser.view.show_all ();
@@ -72,7 +72,7 @@ namespace Snap
 			this.thumb_browser.view.hide ();
 
 			this.box.add (this.photo_viewer.container);
-			this.photo_viewer.finished += this.activate_thumb_view;
+			this.photo_viewer.finished.connect (this.activate_thumb_view);
 			this.photo_viewer.container.show_all ();
 		}
 

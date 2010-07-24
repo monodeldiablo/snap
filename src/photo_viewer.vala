@@ -87,14 +87,14 @@ namespace Snap
 
 		private void connect_signals ()
 		{
-			this.zoom_in_action.activate += this.zoom_in;
-			this.zoom_out_action.activate += this.zoom_out;
-			this.zoom_normal_action.activate += this.zoom_normal;
-			this.zoom_fit_action.activate += this.zoom_best_fit;
-			this.rotate_left_action.activate += this.rotate_left;
-			this.rotate_right_action.activate += this.rotate_right;
+			this.zoom_in_action.activate.connect (this.zoom_in);
+			this.zoom_out_action.activate.connect (this.zoom_out);
+			this.zoom_normal_action.activate.connect (this.zoom_normal);
+			this.zoom_fit_action.activate.connect (this.zoom_best_fit);
+			this.rotate_left_action.activate.connect (this.rotate_left);
+			this.rotate_right_action.activate.connect (this.rotate_right);
 
-			this.leave_action.activate += this.handle_finished;
+			this.leave_action.activate.connect (this.handle_finished);
 		}
 
 		private void handle_finished ()
