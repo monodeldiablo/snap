@@ -26,6 +26,7 @@ bin_PROGRAMS = \
 	snap-metadata-daemon \
 	snap-preferences-daemon \
 	snap \
+	importer \
 	$(NULL)
 
 snap_import_daemon_SOURCES = \
@@ -99,6 +100,14 @@ snap_SOURCES = \
 	$(NULL)
 
 snap_LDADD = \
+	$(SNAP_LIBS) \
+	$(NULL)
+
+importer_SOURCES = \
+	importer.vala \
+	$(NULL)
+
+importer_LDADD = \
 	$(SNAP_LIBS) \
 	$(NULL)
 
