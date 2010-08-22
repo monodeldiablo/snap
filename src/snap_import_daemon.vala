@@ -90,6 +90,8 @@ namespace Snap
 		private bool handle_import_request (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
+			debug ("handling import request for '%s'...".printf(path));
+			bool success = true;
 
 			try
 			{
@@ -100,9 +102,19 @@ namespace Snap
 					// FIXME: Pop up a window comparing this photo with the one in its
 					//        destination and ask the user whether they're the same or
 					//        different.
+					string old_digest = this.digest_from_photo (path);
+					string new_digest = this.digest_from_photo (new_path);
+
+					if (old_digest == new_digest)
+					{
+						success = false;
+					}
 				}
 
-				bool success = this.copy_photo (path, new_path);
+				if (success)
+				{
+					success = this.copy_photo (path, new_path);
+				}
 
 				if (success)
 				{
@@ -110,7 +122,6 @@ namespace Snap
 
 					return true;
 				}
-
 				else
 				{
 					this.request_failed (req.request_id, "Unknown error");
@@ -128,16 +139,16 @@ namespace Snap
 		private string construct_new_path (string path) throws Snap.ImportError
 		{
 			string suffix = this.suffix_from_photo (path);
-					debug ("suffix: '%s'", suffix);
+			debug ("suffix: '%s'", suffix);
 			string[] datetime = this.datetime_from_photo (path);
-					debug ("datetime: %s%s%s_%s%s%s%s",
-						datetime[0],
-						datetime[1],
-						datetime[2],
-						datetime[3],
-						datetime[4],
-						datetime[5],
-						datetime[6]);
+			debug ("datetime: %s%s%s_%s%s%s%s",
+				datetime[0],
+				datetime[1],
+				datetime[2],
+				datetime[3],
+				datetime[4],
+				datetime[5],
+				datetime[6]);
 
 			string year = datetime[0];
 			string month = datetime[1];
@@ -199,13 +210,16 @@ namespace Snap
 
 			try
 			{
-				var vfs = GLib.Vfs.get_default ();
-				var src = vfs.get_file_for_path (old_path);
-				var dest = vfs.get_file_for_path (new_path);
+				var src = GLib.File.new_for_path (old_path);
+				var dest = GLib.File.new_for_path (new_path);
 
 				// If the directory tree doesn't exist, make it.
-				success = dest.get_parent ().make_directory_with_parents (null) &&
-					src.copy (dest, GLib.FileCopyFlags.BACKUP, null, null);
+				if (!dest.get_parent ().query_exists ())
+				{
+					dest.get_parent ().make_directory_with_parents (null);
+				}
+
+				success = src.copy (dest, GLib.FileCopyFlags.BACKUP, null, null);
 			}
 
 			catch (GLib.Error e)
@@ -300,8 +314,44 @@ namespace Snap
 			{
 				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
 			}
+			debug("got %s-%s-%s %s:%s:%s.%s".printf(datetime[0], datetime[1], datetime[2], datetime[3], datetime[4], datetime[5], datetime[6]));
 
 			return datetime;
+		}
+
+		// FIXME: Look into using libexif or some other library to do this without
+		//        needing to spawn processes and dump tons of unnecessary strings.
+		private string digest_from_photo (string path) throws Snap.ImportError
+		{
+			string digest = "";
+
+			// Dump the EXIF data from eviv2 in the format "Exif.Key     Value".
+			Invocation dump_exif = new Invocation ("exiv2 -Pkv %s".printf (path));
+
+			if (!dump_exif.clean)
+			{
+				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (dump_exif.command, dump_exif.error));
+			}
+
+			if (dump_exif.return_value < 0)
+			{
+				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, dump_exif.return_value));
+			}
+
+			// Extract the digest, if it exists.
+			GLib.MatchInfo digest_match = dump_exif.scan ("Xmp.exif.Digest\\s+(?<digest>\\w*)");
+
+			if (digest_match.matches ())
+			{
+				digest = digest_match.fetch_named ("digest");
+			}
+			else
+			{
+				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No digest information was found".printf (path));
+			}
+
+			debug ("got digest of '%s'".printf(digest));
+			return digest;
 		}
 
 		/************

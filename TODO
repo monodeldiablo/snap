@@ -40,5 +40,5 @@ v0.1.0
   more Vala-friendly library than exempi, but with all the same pieces)
 * fix up the compile flags in src/Makefile.am so that daemons don't get built
   with unnecessary dependencies (GTK, GConf, POSIX, etc.)
-* compile common utilities (move, copy, path munging, "raw/high/thumb"
+* compile common utilities (move, copy, path munging, "raw/high/low/thumb"
   constants, and other bits) into a single reusable spot

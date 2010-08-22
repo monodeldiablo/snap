@@ -30,7 +30,8 @@ namespace Snap
 	{
 		SPAWN,
 		EXIV2,
-		MOVE
+		MOVE,
+		REGEX
 	}
 
 	[DBus (name = "org.washedup.Snap.Thumbnail")]
@@ -81,16 +82,42 @@ namespace Snap
 		private bool handle_thumbnail_request (Request req) throws GLib.Error
 		{
 			string path = req.get_string (0);
-			string preview_path = this.generate_preview_path (path);
-			string thumb_path = this.generate_thumbnail_path (path);
+			bool success = true;
 
 			try
 			{
-				bool success = this.extract_thumbnail (path) && this.move_thumbnail (preview_path, thumb_path);
+				// Figure out how many (if any) thumbs this photo has.
+				Invocation thumbs = new Invocation("exiv2 -pp '%s'".printf (path));
+
+				if (!thumbs.clean)
+				{
+					throw new ThumbnailError.SPAWN ("Error spawning '%s': %s".printf (thumbs.command, thumbs.error));
+				}
+
+				if (thumbs.return_value < 0)
+				{
+					throw new ThumbnailError.EXIV2 ("Error dumping thumbnail information from '%s' (return code: %d)".printf (path, thumbs.return_value));
+				}
+
+				debug("thumbs: '%s'".printf(thumbs.stdout.chomp ()));
+				string[] thumb_info = thumbs.stdout.chomp ().split("\n");
+				int thumb_count = thumb_info.length;
+
+				for (int i = 0; i < thumb_count; i++)
+				{
+					debug("thumb info: '%s'".printf(thumb_info[i]));
+					string preview_path = this.generate_preview_path (path, i + 1);
+					debug ("preview path: %s".printf(preview_path));
+
+					string thumb_path = this.generate_thumbnail_path (path, thumb_info[i]);
+					debug ("thumb path: %s".printf(thumb_path));
+
+					success = success && this.extract_thumbnail (path, i + 1) && this.move_thumbnail (preview_path, thumb_path);
+				}
 
 				if (success)
 				{
-					this.request_succeeded (req.request_id, thumb_path);
+					this.request_succeeded (req.request_id, "Thumbnail(s) successfully written!");
 
 					return success;
 				}
@@ -101,7 +128,7 @@ namespace Snap
 				}
 			}
 
-			catch (Snap.ThumbnailError e)
+			catch (ThumbnailError e)
 			{
 				this.request_failed (req.request_id, e.message);
 			}
@@ -109,11 +136,12 @@ namespace Snap
 			return false;
 		}
 
+		// NOTE: exiv2 -pp will dump available thumbnails, one per line.
 		// NOTE: exiv2 -ep1 will extract a 160x120px thumbnail.
-		// FIXME: remember to move the resulting thumbnail to the proper location.
-		private bool extract_thumbnail (string path) throws Snap.ThumbnailError
+		// NOTE: exiv2 -ep2 will extract a 570x375px thumbnail.
+		private bool extract_thumbnail (string path, int thumb_id) throws ThumbnailError
 		{
-			Invocation extract_thumb = new Invocation("exiv2 -ep1 '%s'".printf (path));
+			Invocation extract_thumb = new Invocation("exiv2 -ep%d '%s'".printf (thumb_id, path));
 
 			if (!extract_thumb.clean)
 			{
@@ -128,73 +156,88 @@ namespace Snap
 			return true;
 		}
 
-		private bool move_thumbnail (string from_path, string to_path) throws Snap.ThumbnailError
+		private bool move_thumbnail (string from_path, string to_path) throws ThumbnailError
 		{
 			bool success = false;
 
 			try
 			{
-				var vfs = GLib.Vfs.get_default ();
-				var src = vfs.get_file_for_path (from_path);
-				var dest = vfs.get_file_for_path (to_path);
+				var src = GLib.File.new_for_path (from_path);
+				var dest = GLib.File.new_for_path (to_path);
 				
 				// If the directory tree doesn't exist, make it.
-				success = dest.get_parent ().make_directory_with_parents (null) &&
-					src.move (dest, GLib.FileCopyFlags.BACKUP, null, null);
+				if (!dest.get_parent ().query_exists ())
+				{
+					dest.get_parent ().make_directory_with_parents (null);
+				}
+
+				success = src.move (dest, GLib.FileCopyFlags.BACKUP, null, null);
 			}
 
 			catch (GLib.Error e)
 			{
-				throw new Snap.ThumbnailError.MOVE (e.message);
+				throw new ThumbnailError.MOVE (e.message);
 			}
 
 			return success;
 		}
 
-		// FIXME: Splitting is probably C-style splitting... this may require the
-		//        GLib.Regex.split_simple () method to do correctly.
-		private string generate_thumbnail_path (string photo_path)
+		// Photos are sorted, based on their dimensions, into three groups:
+		//  * high - native resolution
+		//  * low - lower resolution, web quality
+		//  * thumb - very low resolution, useful for bird's-eye comparisons
+		//
+		// This method inspects the thumb_info for the image provided and generates
+		// the appropriate path. The thumbnail information is assumed to be derived
+		// from a native resolution image, so it's assumed that the photo_path
+		// variable references the "high" group.
+		private string generate_thumbnail_path (string photo_path, string thumb_info) throws ThumbnailError
 		{
-			string thumb_path = "";
-			string[] split = photo_path.split ("high");
-
 			// If the "high" keyword isn't found in the path, someone's trying to use
 			// this daemon to thumbnail images not in the proper tree, which is naughty
 			// and unsupported.
-			if (split.length == 1)
+			// 
+			// FIXME: This is not terribly internationalized.
+			if (!photo_path.contains("high"))
 			{
 				return "";
 			}
 
-			for (int i = 0; i < split.length; ++i)
+			try
 			{
-				if (i == split.length - 1)
-				{
-					thumb_path += "thumb";
-				}
+				GLib.Regex dimensions_regex = new GLib.Regex ("(?<width>\\d+)x(?<height>\\d+) pixels");
+				GLib.MatchInfo dimensions_match;
 
-				thumb_path += split[i];
+				dimensions_regex.match (thumb_info, 0, out dimensions_match);
+				int width = dimensions_match.fetch_named ("width").to_int ();
+				int height = dimensions_match.fetch_named ("height").to_int ();
+
+				// We only care about the largest dimension, since the photo might be
+				// rotated or a strange format.
+				int reference = (width > height ? width : height);
+
+				// I've arbitrarily chosen 240px to be the cutoff for thumbnails. Any larger
+				// than that and they're officially considered web quality.
+				string quality = (reference > 240 ? "low" : "thumb");
+
+				// FIXME: This is pretty stupid, since it can really punish someone for
+				//        having the substring "high" anywhere else in their path. This
+				//        should, instead, tear out the photo_directory first, so that we're
+				//        guaranteed to be in safe territory.
+				return photo_path.replace ("high", quality);
 			}
 
-			return thumb_path;
+			catch (GLib.RegexError e)
+			{
+				throw new ThumbnailError.REGEX ("Error creating the regular expression to parse the file name for '%s'".printf (photo_path));
+			}
 		}
 
-		private string generate_preview_path (string photo_path)
+		// FIXME: Obviously, this depends on exiv2's thumbnail extraction naming
+		//        behavior, which is brittle as all hell.
+		private string generate_preview_path (string photo_path, int thumb_id)
 		{
-			string preview_path = "";
-			string[] split = photo_path.split (".jpg");
-
-			for (int i = 0; i < split.length; ++i)
-			{
-				if (i == split.length - 1)
-				{
-					preview_path += "-preview1.jpg";
-				}
-
-				preview_path += split[i];
-			}
-
-			return preview_path;
+			return photo_path.down ().replace (".jpg", "-preview%d.jpg".printf(thumb_id));
 		}
 
 		/************
