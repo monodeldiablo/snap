@@ -136,42 +136,41 @@ namespace Snap
 		{
 			string preference = "";
 
-			try
+			if (this.preferences_daemon == null)
 			{
-				if (this.preferences_daemon == null)
-				{
-					debug ("launching the preferences daemon");
-					DBus.Connection conn;
-
-					conn = DBus.Bus.get (DBus.BusType.SESSION);
-
-					this.global_lock.@lock ();
-					this.preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
-						"/org/washedup/Snap/Preferences",
-						"org.washedup.Snap.Preferences");
-					debug ("launched!");
-					this.global_lock.unlock ();
-				}
-
-				debug ("fetching...");
-				preference = preferences_daemon.get_preference (key);
-				debug ("fetched '%s'!", preference);
-
-				while (preference == "")
-				{
-					GLib.Thread.usleep (1000);
-					debug ("fetching...");
-					preference = preferences_daemon.get_preference (key);
-					debug ("fetched!");
-				}
+				this.launch_preferences_daemon ();
 			}
 
-			catch (DBus.Error e)
+			debug ("fetching...");
+			preference = preferences_daemon.get_preference (key);
+			debug ("fetched '%s'!", preference);
+
+			while (preference == "")
 			{
-				critical ("Error connecting to the preferences daemon: %s", e.message);
+				GLib.Thread.usleep (1000);
+				debug ("fetching...");
+				preference = preferences_daemon.get_preference (key);
+				debug ("fetched!");
 			}
 
 			return preference;
+		}
+
+		// Make a persistent change to the settings for the suite.
+		public bool set_preference (string key, string value)
+		{
+			bool success;
+
+			if (this.preferences_daemon == null)
+			{
+				this.launch_preferences_daemon ();
+			}
+
+			debug ("setting...");
+			success = this.preferences_daemon.set_preference (key, value);
+			debug ("set '%s' to '%s'!", key, value);
+
+			return success;
 		}
 
 		// Check every timeout_usec if the application is inactive and, if so, quit.
@@ -225,42 +224,63 @@ namespace Snap
 			return req.request_id;
 		}
 
+		// Initialize the preferences daemon in order to get or set preferences.
+		private void launch_preferences_daemon ()
+		{
+			try
+			{
+				debug ("launching the preferences daemon");
+				DBus.Connection conn;
+
+				conn = DBus.Bus.get (DBus.BusType.SESSION);
+
+				this.global_lock.@lock ();
+				this.preferences_daemon = conn.get_object ("org.washedup.Snap.Preferences",
+					"/org/washedup/Snap/Preferences",
+					"org.washedup.Snap.Preferences");
+				debug ("launched!");
+				this.global_lock.unlock ();
+			}
+
+			catch (DBus.Error e)
+			{
+				critical ("Error connecting to the preferences daemon: %s", e.message);
+			}
+		}
+
 		// Process the items in the request queue.
 		private void* process_queue ()
 		{
-			if (this.request_queue.length () > 0)
+			while (this.request_queue.length () > 0)
 			{
-				do
+				Request req = this.request_queue.pop ();
+
+				try
 				{
-					Request req = this.request_queue.pop ();
+					//bool success = this.processing_method (req);
+					this.processing_method (req);
 
-					try
+					// FIXME: As of right now, these signals cannot be inherited and are thus
+					//        meaningless. Child classes must implement their own signals
+					//        that do the same thing as this, but less cleanly.
+					/*
+					if (success)
 					{
-						//bool success = this.processing_method (req);
-						this.processing_method (req);
-
-						// FIXME: As of right now, these signals cannot be inherited and are thus
-						//        meaningless. Child classes must implement their own signals
-						//        that do the same thing as this, but less cleanly.
-						/*
-						if (success)
-						{
-							// Signal that the request has been successfully completed.
-							this.request_succeeded (req.request_id);
-						}
-
-						else
-						{
-							this.request_failed (req.request_id);
-						}
-						*/
+						// Signal that the request has been successfully completed.
+						this.request_succeeded (req.request_id);
 					}
 
-					catch (GLib.Error e)
+					else
 					{
-						error ("Error processing request %u: %s", req.request_id, e.message);
+						this.request_failed (req.request_id);
 					}
-				} while (this.request_queue.length () > 0);
+					*/
+				}
+
+				catch (GLib.Error e)
+				{
+					error ("Error processing request %u: %s", req.request_id, e.message);
+				}
 			}
 
 			this.worker_thread = null;
