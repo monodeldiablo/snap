@@ -102,7 +102,7 @@ namespace Snap
 
 			catch (DBus.Error e)
 			{
-				stderr.printf ("Shit! %s\n", e.message);
+				stderr.printf ("Oh no! %s\n", e.message);
 			}
 		}
 
@@ -242,9 +242,9 @@ namespace Snap
 			this.default_copyright_entry = (Gtk.Entry) builder.get_object ("default_copyright_entry");
 			this.close_action = (Gtk.Action) builder.get_object ("close_action");
 
-			close_action.activate += this.sync_preferences;
-			this.preferences_dialog.close += this.sync_preferences;
-			this.preferences_dialog.destroy += this.sync_preferences;
+			close_action.activate.connect (this.sync_preferences);
+			this.preferences_dialog.close.connect (this.sync_preferences);
+			this.preferences_dialog.destroy.connect (this.sync_preferences);
 		}
 
 		private void populate_preferences_dialog ()

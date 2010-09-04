@@ -53,8 +53,6 @@ namespace Snap
 		* OPERATION *
 		************/
 
-		public string photo_directory = null;
-
 		public ImportDaemon (string[] args)
 		{
 			this.processing_method = this.handle_import_request;
@@ -68,7 +66,7 @@ namespace Snap
 
 		public void set_photo_directory (string dir)
 		{
-			this.photo_directory = dir;
+			this.set_preference ("photo-directory", dir);
 		}
 
 		public uint[] import (string[] paths)
@@ -107,6 +105,7 @@ namespace Snap
 
 					if (old_digest == new_digest)
 					{
+						debug ("Collision detected!");
 						success = false;
 					}
 				}
@@ -177,15 +176,12 @@ namespace Snap
 			// Construct the path and file names from this information. The naming
 			// convention is strict and looks like this:
 			//
-			//   [raw,high,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
-			if (photo_directory == null)
-			{
-				this.photo_directory = this.get_preference ("photo-directory");
-			}
-			debug ("photo_directory: %s", this.photo_directory);
+			//   [raw,high,low,thumb]/YYYY/MM/DD/YYYYMMDD_hhmmssxx.[nef,jpg]
+			string photo_directory = this.get_preference ("photo-directory");
+			debug ("photo_directory: %s", photo_directory);
 
 			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				this.photo_directory,
+				photo_directory,
 				quality,
 				year,
 				month,

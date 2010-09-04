@@ -51,8 +51,6 @@ namespace Snap
 		* OPERATION *
 		************/
 
-		public string photo_directory = null;
-
 		public ThumbnailDaemon (string[] args)
 		{
 			this.processing_method = this.handle_thumbnail_request;
@@ -137,8 +135,9 @@ namespace Snap
 		}
 
 		// NOTE: exiv2 -pp will dump available thumbnails, one per line.
-		// NOTE: exiv2 -ep1 will extract a 160x120px thumbnail.
-		// NOTE: exiv2 -ep2 will extract a 570x375px thumbnail.
+		// NOTE: exiv2 -ep1 will (usually) extract a 160x120px thumbnail.
+		// NOTE: exiv2 -ep2 will (usually) extract a 570x375px thumbnail.
+		// NOTE: exiv2 -ep3 will (occasionally) extract a full size JPEG.
 		private bool extract_thumbnail (string path, int thumb_id) throws ThumbnailError
 		{
 			Invocation extract_thumb = new Invocation("exiv2 -ep%d '%s'".printf (thumb_id, path));
@@ -183,22 +182,25 @@ namespace Snap
 		}
 
 		// Photos are sorted, based on their dimensions, into three groups:
-		//  * high - native resolution
+		//  * raw - uncompressed
+		//  * high - native resolution, with compression
 		//  * low - lower resolution, web quality
 		//  * thumb - very low resolution, useful for bird's-eye comparisons
 		//
 		// This method inspects the thumb_info for the image provided and generates
 		// the appropriate path. The thumbnail information is assumed to be derived
 		// from a native resolution image, so it's assumed that the photo_path
-		// variable references the "high" group.
+		// variable references the "high" or "raw" groups.
 		private string generate_thumbnail_path (string photo_path, string thumb_info) throws ThumbnailError
 		{
-			// If the "high" keyword isn't found in the path, someone's trying to use
-			// this daemon to thumbnail images not in the proper tree, which is naughty
-			// and unsupported.
+			// If the "high" or "raw" keywords aren't found in the path, someone's
+			// trying to use this daemon to thumbnail images not in the proper tree,
+			// which is naughty and unsupported.
 			// 
 			// FIXME: This is not terribly internationalized.
-			if (!photo_path.contains("high"))
+			// FIXME: This will clobber anything with "high" or "raw" in the path, which
+			//        is a huge bug (especially if your name is "phighibbert" or "craw".
+			if (!photo_path.contains("high") && !photo_path.contains("raw"))
 			{
 				return "";
 			}
@@ -216,15 +218,34 @@ namespace Snap
 				// rotated or a strange format.
 				int reference = (width > height ? width : height);
 
-				// I've arbitrarily chosen 240px to be the cutoff for thumbnails. Any larger
-				// than that and they're officially considered web quality.
-				string quality = (reference > 240 ? "low" : "thumb");
+				// I've arbitrarily chosen 240px to be the upper bound for thumbnails and
+				// 1024px as the upper bound for web quality. Any larger than that and
+				// they're officially considered high quality.
+				string quality;
 
-				// FIXME: This is pretty stupid, since it can really punish someone for
-				//        having the substring "high" anywhere else in their path. This
-				//        should, instead, tear out the photo_directory first, so that we're
-				//        guaranteed to be in safe territory.
-				return photo_path.replace ("high", quality);
+				if (reference < 240)
+				{
+					quality = "thumb";
+				}
+
+				else if (reference < 1024)
+				{
+					quality = "low";
+				}
+
+				else
+				{
+					quality = "high";
+				}
+
+				if (photo_path.contains ("high"))
+				{
+					return photo_path.replace ("high", quality);
+				}
+				else
+				{
+					return photo_path.replace ("raw", quality);
+				}
 			}
 
 			catch (GLib.RegexError e)
