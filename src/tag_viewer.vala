@@ -50,7 +50,8 @@ namespace Snap
 
 	public class TagViewer : GLib.Object
 	{
-		public Gtk.TreeView view;
+		public Gtk.ScrolledWindow container;
+		private Gtk.TreeView view;
 		private Gtk.ListStore store;
 		private Gee.HashMap<string, Gee.ArrayList<string>> tags = new Gee.HashMap<string, Gee.ArrayList<string>> (GLib.str_hash);
 		private Gee.HashMap<uint, TagRequest> add_list = new Gee.HashMap<uint, TagRequest> (GLib.direct_hash);
@@ -160,6 +161,11 @@ namespace Snap
 
 			this.view.append_column (name_column);
 			this.view.append_column (is_applied_column);
+
+			this.container = new Gtk.ScrolledWindow (null, null);
+			this.container.add_with_viewport (this.view);
+			this.container.hscrollbar_policy = Gtk.PolicyType.NEVER;
+			this.container.vscrollbar_policy = Gtk.PolicyType.AUTOMATIC;
 		}
 
 		// Update the tag store to reflect recent changes in the path lists.

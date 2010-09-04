@@ -24,14 +24,13 @@ using GLib;
 using DBus;
 using Gtk;
 
-// FIXME: Remove all of the thumb_browser.view stuff. I shouldn't be able to
+// FIXME: Remove all of the ".container" stuff. I shouldn't be able to
 //        access members directly unless strictly necessary.
 namespace Snap
 {
 	public class UI : Gtk.Window
 	{
 		public Gtk.HPaned container;
-		public Gtk.HBox box;
 		public ThumbBrowser thumb_browser;
 		public TagViewer tag_viewer;
 		public PhotoViewer photo_viewer;
@@ -41,17 +40,15 @@ namespace Snap
 			this.thumb_browser = new ThumbBrowser ();
 			this.tag_viewer = new TagViewer ();
 			this.container = new Gtk.HPaned ();
-			this.box = new Gtk.HBox (false, 0);
 
-			this.box.add (this.thumb_browser.view);
-			this.container.pack1 (this.tag_viewer.view, false, true);
-			this.container.pack2 (this.box, false, true);
+			this.container.pack1 (this.tag_viewer.container, false, true);
+			this.container.pack2 (this.thumb_browser.container, true, true);
+			this.container.position = 3;
 			this.add (this.container);
 
-			// Set up a few defaults (window maximized, tag viewer a reasonable width,
-			// etc).
+			this.set_default_icon_name ("camera-photo");
+			this.title = "Photo Manager";
 			this.maximize ();
-			this.container.position = 15;
 
 			for (int i = 1; i < args.length; ++i)
 			{
@@ -63,15 +60,17 @@ namespace Snap
 			this.destroy.connect (this.quit);
 
 			this.show_all ();
-			this.thumb_browser.view.show_all ();
+			this.thumb_browser.container.show_all ();
 		}
 
 		private void activate_photo_view (string path)
 		{
 			this.photo_viewer = new PhotoViewer (path);
-			this.thumb_browser.view.hide ();
+			this.thumb_browser.container.hide ();
 
-			this.box.add (this.photo_viewer.container);
+			this.container.remove (this.thumb_browser.container);
+			this.container.pack2 (this.photo_viewer.container, true, true);
+
 			this.photo_viewer.finished.connect (this.activate_thumb_view);
 			this.photo_viewer.container.show_all ();
 		}
@@ -79,10 +78,12 @@ namespace Snap
 		private void activate_thumb_view ()
 		{
 			this.photo_viewer.container.hide ();
-			this.box.remove (this.photo_viewer.container);
+			this.container.remove (this.photo_viewer.container);
 			this.photo_viewer = null;
 
-			this.thumb_browser.view.show_all ();
+			this.container.pack2 (this.thumb_browser.container, true, true);
+
+			this.thumb_browser.container.show_all ();
 		}
 
 		private void handle_selected (string [] paths)

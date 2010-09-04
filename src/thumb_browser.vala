@@ -37,8 +37,9 @@ namespace Snap
 
 	public class ThumbBrowser : GLib.Object
 	{
+		public Gtk.ScrolledWindow container;
 		public Gtk.IconView view;
-		public Gtk.ListStore store;
+		private Gtk.ListStore store;
 		private dynamic DBus.Object preferences_daemon;
 
 		public signal void selected (string [] paths);
@@ -49,7 +50,7 @@ namespace Snap
 			this.set_up_connections ();
 			this.set_up_ui ();
 
-			// FIXME: WTF?!
+			// FIXME: Stick the code to intelligently load the thumbs here.
 			/*
 			string photo_directory = this.preferences_daemon.get_preference ("photo-directory");
 			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
@@ -90,6 +91,11 @@ namespace Snap
 			this.view.tooltip_column = ThumbBrowserColumns.PATH;
 			this.view.pixbuf_column = ThumbBrowserColumns.PIXBUF;
 			this.view.selection_mode = Gtk.SelectionMode.MULTIPLE;
+
+			this.container = new Gtk.ScrolledWindow (null, null);
+			this.container.add_with_viewport (this.view);
+			this.container.hscrollbar_policy = Gtk.PolicyType.NEVER;
+			this.container.vscrollbar_policy = Gtk.PolicyType.AUTOMATIC;
 
 			this.view.selection_changed.connect (this.handle_selection_changed);
 			this.view.item_activated.connect (this.handle_item_activated);
