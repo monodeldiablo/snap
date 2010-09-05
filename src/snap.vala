@@ -35,6 +35,8 @@ namespace Snap
 		public TagViewer tag_viewer;
 		public PhotoViewer photo_viewer;
 
+		// FIXME: Once expanded, one cannot horizontally shrink the thumb_browser
+		//        widget. This might be possible to fix with the help of ResizeMode.
 		public UI (string [] args)
 		{
 			this.thumb_browser = new ThumbBrowser ();
