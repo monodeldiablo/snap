@@ -239,7 +239,6 @@ namespace Snap
 		// to be useful!
 		private void handle_tagging_request_succeeded (dynamic DBus.Object daemon, uint request_id)
 		{
-
 			if (this.add_list.has_key (request_id))
 			{
 				TagRequest tr = this.add_list [request_id];
