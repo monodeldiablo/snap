@@ -23,6 +23,7 @@
 
 using GLib;
 using DBus;
+using Posix;
 
 // FIXME: Use the built-in logging facilities!
 
@@ -41,7 +42,7 @@ namespace Snap
 	public abstract class Daemon : GLib.Object
 	{
 		// The application main loop.
-		private GLib.MainLoop mainloop;
+		private GLib.MainLoop mainloop = new GLib.MainLoop (null, false);
 
 		// The daemon that manages settings.
 		public dynamic DBus.Object preferences_daemon;
@@ -82,12 +83,6 @@ namespace Snap
 			this.global_lock = new Mutex ();
 		}
 
-		// ... and its darker counterpart, the destructor.
-		~Daemon ()
-		{
-			this.quit ();
-		}
-
 		// Register the daemon as a DBus service.
 		public void start_dbus_service (string object_name, string object_path)
 		{
@@ -120,7 +115,7 @@ namespace Snap
 
 			catch (DBus.Error e)
 			{
-				stderr.printf ("Shit! %s\n", e.message);
+				GLib.stderr.printf ("Could not register DBus service: %s\n", e.message);
 			}
 		}
 
@@ -306,7 +301,6 @@ namespace Snap
 		// Run the program's event loop.
 		public void run ()
 		{
-			this.mainloop = new GLib.MainLoop (null, false);
 			this.mainloop.run ();
 		}
 
@@ -321,8 +315,16 @@ namespace Snap
 			}
 
 			// Actually, finally, really go away.
-			debug ("Goodbye!");
-			this.mainloop.quit ();
+			if (this.mainloop != null && this.mainloop.is_running ())
+			{
+				debug ("Goodbye!");
+				this.mainloop.quit ();
+			}
+
+			else
+			{
+				Posix.exit (-1);
+			}
 		}
 	}
 }
