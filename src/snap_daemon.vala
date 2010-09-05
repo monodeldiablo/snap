@@ -184,7 +184,9 @@ namespace Snap
 		{
 			if (this.request_queue == null)
 			{
+				this.global_lock.@lock ();
 				this.request_queue = new GLib.AsyncQueue<Request> ();
+				this.global_lock.unlock ();
 			}
 
 			// Assign the request a unique(ish) ID.
@@ -203,7 +205,9 @@ namespace Snap
 			{
 				try
 				{
+					this.global_lock.@lock ();
 					this.worker_thread = GLib.Thread.create (this.process_queue, true);
+					this.global_lock.unlock ();
 				}
 
 				catch (GLib.ThreadError e)

@@ -124,7 +124,7 @@ namespace Snap
 
 		private Gtk.Widget create_summary_page()
 		{
-			this.summary = new Gtk.Label ("Import finished!");
+			this.summary = new Gtk.Label ("");
 			this.summary.use_markup = true;
 			this.summary.wrap = true;
 
@@ -134,7 +134,7 @@ namespace Snap
 		private void set_import_directory ()
 		{
 			this.import_directory = this.chooser.get_file ();
-			critical ("Set import directory to '%s'", this.import_directory.get_path ());
+			debug ("Set import directory to '%s'", this.import_directory.get_path ());
 		}
 
 		private void import ()
@@ -181,9 +181,14 @@ namespace Snap
 				}
 			}
 
+			// FIXME: Display a message to the user and then exit.
 			catch (GLib.Error e)
 			{
 				critical (e.message);
+
+				this.current_file.set_text ("Unrecoverable error! Please see the next page for more information.");
+				this.summary.set_text ("Uh oh! A fatal error occurred during import: %s".printf (e.message));
+				this.set_page_complete (this.pages[PageIndex.PROGRESS].widget, true);
 			}
 		}
 
@@ -247,7 +252,7 @@ namespace Snap
 
 			this.successes.set (request_id, new_path);
 
-			this.current_file.set_markup ("Importing... '%s' → '%s'".printf (original_path, new_path));
+			this.current_file.set_markup ("'%s' → '%s'".printf (original_path, new_path));
 			this.increment_progress_bar ();
 		}
 
@@ -258,7 +263,7 @@ namespace Snap
 
 			this.failures.set (request_id, reason);
 
-			this.current_file.set_markup ("Importing... '%s' <span foreground='red' weight='bold'>FAILED!</span>".printf (original_path));
+			this.current_file.set_markup ("'%s' <span foreground='red' weight='bold'>FAILED!</span>".printf (original_path));
 			this.increment_progress_bar ();
 		}
 
@@ -284,7 +289,11 @@ namespace Snap
 					import ();
 					break;
 				case PageIndex.PROGRESS:
-					summarize ();
+					// If there was a fatal error, don't bother summarizing.
+					if (this.summary.get_text () == "")
+					{
+						summarize ();
+					}
 					break;
 				default:
 					break;
