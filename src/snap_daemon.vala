@@ -136,16 +136,12 @@ namespace Snap
 				this.launch_preferences_daemon ();
 			}
 
-			debug ("fetching...");
 			preference = preferences_daemon.get_preference (key);
-			debug ("fetched '%s'!", preference);
 
 			while (preference == "")
 			{
 				GLib.Thread.usleep (1000);
-				debug ("fetching...");
 				preference = preferences_daemon.get_preference (key);
-				debug ("fetched!");
 			}
 
 			return preference;
