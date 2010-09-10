@@ -153,7 +153,13 @@ namespace Snap
 				while (info != null)
 				{
 					string name = info.get_name ();
-					paths += GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (), dir_path, name);
+					string content_type = info.get_content_type ();
+
+					if (content_type.has_prefix ("image/"))
+					{
+						paths += GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (), dir_path, name);
+					}
+
 					info = iter.next_file ();
 				}
 				debug ("Preparing to import %d files...", paths.length);
