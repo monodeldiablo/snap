@@ -23,16 +23,16 @@
 
 using GLib;
 using DBus;
+using Xmpl;
 
 namespace Snap
 {
 	public errordomain ImportError
 	{
 		SUFFIX,
-		SPAWN,
-		EXIV2,
 		REGEX,
-		COPY,
+		DIGEST,
+		FILE_SYSTEM,
 		INVALID_PREFERENCE
 	}
 
@@ -90,10 +90,13 @@ namespace Snap
 			string path = req.get_string (0);
 			debug ("handling import request for '%s'...".printf(path));
 			bool success = true;
+			string error = "Unknown error";
 
 			try
 			{
 				string new_path = this.construct_new_path (path);
+
+				debug ("Testing if we already have this file...");
 
 				if (GLib.FileUtils.test (new_path, GLib.FileTest.EXISTS))
 				{
@@ -105,25 +108,29 @@ namespace Snap
 
 					if (old_digest == new_digest)
 					{
-						debug ("Collision detected!");
 						success = false;
+						error = "Collision detected with %s!".printf (new_path);
 					}
 				}
 
 				if (success)
 				{
+					debug ("Copying file...");
+
 					success = this.copy_photo (path, new_path);
 				}
 
 				if (success)
 				{
+					debug ("Done!");
+
 					this.request_succeeded (req.request_id, new_path);
 
 					return true;
 				}
 				else
 				{
-					this.request_failed (req.request_id, "Unknown error");
+					this.request_failed (req.request_id, error);
 				}
 			}
 
@@ -138,9 +145,9 @@ namespace Snap
 		private string construct_new_path (string path) throws Snap.ImportError
 		{
 			string suffix = this.suffix_from_photo (path);
+			int [] datetime = this.datetime_from_photo (path);
 			debug ("suffix: '%s'", suffix);
-			string[] datetime = this.datetime_from_photo (path);
-			debug ("datetime: %s%s%s_%s%s%s%s",
+			debug ("datetime: %04d%02d%02d_%02d%02d%02d%02d",
 				datetime[0],
 				datetime[1],
 				datetime[2],
@@ -149,13 +156,13 @@ namespace Snap
 				datetime[5],
 				datetime[6]);
 
-			string year = datetime[0];
-			string month = datetime[1];
-			string day = datetime[2];
-			string hour = datetime[3];
-			string minute = datetime[4];
-			string second = datetime[5];
-			string subsecond = datetime[6];
+			int year = datetime[0];
+			int month = datetime[1];
+			int day = datetime[2];
+			int hour = datetime[3];
+			int minute = datetime[4];
+			int second = datetime[5];
+			int subsecond = datetime[6];
 
 			// We determine the proper directory root within the photo directory by
 			// examining the quality of the image (which, in this case, is apparently
@@ -166,6 +173,7 @@ namespace Snap
 			{
 				quality = "raw";
 			}
+
 			else
 			{
 				quality = "high";
@@ -183,11 +191,11 @@ namespace Snap
 			string dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
 				photo_directory,
 				quality,
-				year,
-				month,
-				day);
+				"%04d".printf (year),
+				"%02d".printf (month),
+				"%02d".printf (day));
 			debug ("dir: %s", dir);
-			string file_name = "%s%s%s_%s%s%s%s.%s".printf (year,
+			string file_name = "%04d%02d%02d_%02d%02d%02d%02d.%s".printf (year,
 				month,
 				day,
 				hour,
@@ -220,7 +228,7 @@ namespace Snap
 
 			catch (GLib.Error e)
 			{
-				throw new Snap.ImportError.COPY (e.message);
+				throw new Snap.ImportError.FILE_SYSTEM (e.message);
 			}
 
 			return success;
@@ -259,91 +267,97 @@ namespace Snap
 			return suffix;
 		}
 
-		// FIXME: Look into using libexif or some other library to do this without
-		//        needing to spawn processes and dump tons of unnecessary strings.
-		private string[] datetime_from_photo (string path) throws Snap.ImportError
+		// Returns an array of the order:
+		//
+		//   [year, month, day, hour, minutes, second, subsecond]
+		//
+		// The datetime returned is always in UTC, to prevent collisions due to time
+		// zone.
+		//
+		// FIXME: Consider just returning a TimeVal instead of an array.
+		private int [] datetime_from_photo (string path) throws Snap.ImportError
 		{
-			// Dump the EXIF data from eviv2 in the format "Exif.Key     Value".
-			Invocation dump_exif = new Invocation ("exiv2 -Pkv %s".printf (path));
+			GLib.TimeVal time;
+			string datetime_string = Xmpl.get_property (path, Xmpl.EXIF, "DateTimeOriginal");
 
-			if (!dump_exif.clean)
+			if (datetime_string == null)
 			{
-				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (dump_exif.command, dump_exif.error));
+				try
+				{
+					var info = GLib.File.new_for_path (path).query_info ("*", GLib.FileQueryInfoFlags.NONE);
+
+					info.get_modification_time (out time);
+					datetime_string = time.to_iso8601 ();
+				}
+
+				catch (GLib.Error e)
+				{
+					throw new Snap.ImportError.FILE_SYSTEM ("No datetime information was found for '%s': %s".printf (path, e.message));
+				}
 			}
 
-			if (dump_exif.return_value < 0)
-			{
-				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, dump_exif.return_value));
-			}
-
-			// Extract the DateTime and SubSecTime values from the EXIF dump.
-			GLib.MatchInfo datetime_match = dump_exif.scan ("Exif.Image.DateTime\\s+(?<year>\\d{4}):(?<month>\\d{2}):(?<day>\\d{2}) (?<hour>\\d{2}):(?<minute>\\d{2}):(?<second>\\d{2})");
-			GLib.MatchInfo subsecond_match = dump_exif.scan ("Exif.Photo.SubSecTime\\s+(?<subsecond>\\d{2})");
-
-			string[] datetime = new string[8];
-
-			// Some cameras don't support sub-second resolution.
-			if (subsecond_match.matches ())
-			{
-				datetime[6] = subsecond_match.fetch_named ("subsecond");
-			}
-
+			/* Uncomment this if we plan on passing around the TimeVal.
 			else
 			{
-				datetime[6] = "00";
+				time = TimeVal ();
+
+				if (!time.from_iso8601 (datetime_string))
+				{
+					throw new Snap.ImportError.REGEX ("No datetime information was found for '%s'".printf (path));
+				}
 			}
+			*/
+
+			// Extract the DateTime and SubSecTime values from the EXIF dump.
+			// NOTE: The "subsecond" substring from xmpl is 4 characters long, but Snap
+			//       will only track subsecond resolution to the hundredth of a second.
+			//       The truncation is regrettable, but should only impact a very tiny
+			//       number of cases.
+			GLib.MatchInfo datetime_match;
+			GLib.Regex datetime_regex = new GLib.Regex (
+				"(?<year>\\d{4})-" +
+				"(?<month>\\d{2})-" +
+				"(?<day>\\d{2})T" +
+				"(?<hour>\\d{2}):" +
+				"(?<minute>\\d{2}):" +
+				"(?<second>\\d{2})\\." +
+				"(?<subsecond>\\d{2}).*");
+
+			datetime_regex.match (datetime_string, 0, out datetime_match);
+
+			int [] datetime = new int [7];
 
 			// If the datetime data didn't match, we've got problems.
 			// FIXME: If this fails, we should then try to construct a datetime using
 			//        the file's mtime or something...
 			if (datetime_match.matches ())
 			{
-				datetime[0] = datetime_match.fetch_named ("year");
-				datetime[1] = datetime_match.fetch_named ("month");
-				datetime[2] = datetime_match.fetch_named ("day");
-				datetime[3] = datetime_match.fetch_named ("hour");
-				datetime[4] = datetime_match.fetch_named ("minute");
-				datetime[5] = datetime_match.fetch_named ("second");
+				datetime[0] = datetime_match.fetch_named ("year").to_int ();
+				datetime[1] = datetime_match.fetch_named ("month").to_int ();
+				datetime[2] = datetime_match.fetch_named ("day").to_int ();
+				datetime[3] = datetime_match.fetch_named ("hour").to_int ();
+				datetime[4] = datetime_match.fetch_named ("minute").to_int ();
+				datetime[5] = datetime_match.fetch_named ("second").to_int ();
+				datetime[6] = datetime_match.fetch_named ("subsecond").to_int ();
 			}
 
 			else
 			{
-				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No datetime information was found".printf (path));
+				throw new Snap.ImportError.REGEX ("Error parsing datetime information ('%s') for '%s'".printf (datetime_string, path));
 			}
-			debug("got %s-%s-%s %s:%s:%s.%s".printf(datetime[0], datetime[1], datetime[2], datetime[3], datetime[4], datetime[5], datetime[6]));
+			debug("got %04d-%02d-%02d %02d:%02d:%02d.%02d".printf(datetime[0], datetime[1], datetime[2], datetime[3], datetime[4], datetime[5], datetime[6]));
 
 			return datetime;
 		}
 
-		// FIXME: Look into using libexif or some other library to do this without
-		//        needing to spawn processes and dump tons of unnecessary strings.
+		// Grab a fingerprint for the file.
 		private string digest_from_photo (string path) throws Snap.ImportError
 		{
-			string digest = "";
+			string digest = Xmpl.get_property (path, Xmpl.EXIF, "NativeDigest");
 
-			// Dump the EXIF data from eviv2 in the format "Exif.Key     Value".
-			Invocation dump_exif = new Invocation ("exiv2 -Pkv %s".printf (path));
-
-			if (!dump_exif.clean)
+			if (digest == null)
 			{
-				throw new Snap.ImportError.SPAWN ("Error spawning '%s': %s".printf (dump_exif.command, dump_exif.error));
-			}
-
-			if (dump_exif.return_value < 0)
-			{
-				throw new Snap.ImportError.EXIV2 ("Error extracting EXIF data from '%s' (return code: %d)".printf (path, dump_exif.return_value));
-			}
-
-			// Extract the digest, if it exists.
-			GLib.MatchInfo digest_match = dump_exif.scan ("Xmp.exif.Digest\\s+(?<digest>\\w*)");
-
-			if (digest_match.matches ())
-			{
-				digest = digest_match.fetch_named ("digest");
-			}
-			else
-			{
-				throw new Snap.ImportError.REGEX ("Error parsing the EXIF data for '%s': No digest information was found".printf (path));
+				throw new Snap.ImportError.DIGEST ("Error obtaining the digest for '%s'".printf (path));
 			}
 
 			debug ("got digest of '%s'".printf(digest));
