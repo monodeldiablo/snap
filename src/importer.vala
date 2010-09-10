@@ -155,6 +155,8 @@ namespace Snap
 					string name = info.get_name ();
 					string content_type = info.get_content_type ();
 
+					// FIXME: This is still too loose, allowing PNGs, GIFs, SVGs, and other
+					//        unsavory formats in to clog up the pipes.
 					if (content_type.has_prefix ("image/"))
 					{
 						paths += GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (), dir_path, name);
