@@ -3,7 +3,6 @@ NULL =
 AM_CPPFLAGS = \
 	$(SNAP_CFLAGS) \
 	-include $(CONFIG_HEADER) \
-	-I$(top_srcdir)/include \
 	$(NULL)
 
 AM_VALAFLAGS = \
@@ -30,11 +29,13 @@ bin_PROGRAMS = \
 	importer \
 	$(NULL)
 
+daemon_prereqs = \
+	snap_daemon.vala \
+	snap_request.vala
+
 snap_import_daemon_SOURCES = \
 	snap_import_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
-	snap_invocation.vala \
+	daemon_prereqs \
 	$(NULL)
 
 snap_import_daemon_LDADD = \
@@ -43,8 +44,7 @@ snap_import_daemon_LDADD = \
 
 snap_thumbnail_daemon_SOURCES = \
 	snap_thumbnail_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
+	daemon_prereqs \
 	snap_invocation.vala \
 	$(NULL)
 
@@ -54,8 +54,7 @@ snap_thumbnail_daemon_LDADD = \
 
 snap_rotate_daemon_SOURCES = \
 	snap_rotate_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
+	daemon_prereqs \
 	snap_invocation.vala \
 	$(NULL)
 
@@ -65,8 +64,7 @@ snap_rotate_daemon_LDADD = \
 
 snap_delete_daemon_SOURCES = \
 	snap_delete_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
+	daemon_prereqs \
 	$(NULL)
 
 snap_delete_daemon_LDADD = \
@@ -75,8 +73,7 @@ snap_delete_daemon_LDADD = \
 
 snap_metadata_daemon_SOURCES = \
 	snap_metadata_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
+	daemon_prereqs \
 	$(NULL)
 
 snap_metadata_daemon_LDADD = \
@@ -85,8 +82,7 @@ snap_metadata_daemon_LDADD = \
 
 snap_preferences_daemon_SOURCES = \
 	snap_preferences_daemon.vala \
-	snap_daemon.vala \
-	snap_request.vala \
+	daemon_prereqs
 	$(NULL)
 
 snap_preferences_daemon_LDADD = \
