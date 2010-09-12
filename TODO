@@ -1,6 +1,6 @@
 v0.1.0
 ------
-* implement thumb directory traversal for the thumb browser
+* when photo view is activated, pass along the photo path, not the thumb path
 * pop up photo view w/both photos if duplicates are detected
   * if the user says "yes", then ignore the photo & don't import
   * if the user says "no", then increment the destination number (add 1 to

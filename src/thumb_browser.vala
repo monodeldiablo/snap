@@ -41,6 +41,7 @@ namespace Snap
 		public Gtk.IconView view;
 		private Gtk.ListStore store;
 		private dynamic DBus.Object preferences_daemon;
+		private string photo_directory;
 
 		public signal void selected (string [] paths);
 		public signal void activated (string path);
@@ -50,17 +51,13 @@ namespace Snap
 			this.set_up_connections ();
 			this.set_up_ui ();
 
-			// FIXME: Stick the code to intelligently load the thumbs here.
-			/*
-			string photo_directory = this.preferences_daemon.get_preference ("photo-directory");
+			this.photo_directory = this.preferences_daemon.get_preference ("photo-directory");
 			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				photo_directory,
+				this.photo_directory,
 				"thumb");
+debug ("got '%s' as the thumb dir", thumb_dir);
 
-			GLib.FileEnumerator thumbs = GLib.File.new_for_path (thumb_dir).enumerate_children ("*",
-				GLib.FileQueryInfoFlags.NONE,
-				null);
-			*/
+			this.load_thumbs (thumb_dir);
 		}
 
 		private void set_up_connections ()
@@ -99,6 +96,36 @@ namespace Snap
 
 			this.view.selection_changed.connect (this.handle_selection_changed);
 			this.view.item_activated.connect (this.handle_item_activated);
+		}
+
+		// Recursively load thumbs.
+		private void load_thumbs (string path)
+		{
+			GLib.File dir = GLib.File.new_for_path (path);
+			GLib.FileEnumerator iter = dir.enumerate_children ("*",
+				GLib.FileQueryInfoFlags.NONE);
+                        GLib.FileInfo info = iter.next_file ();
+debug("-> in '%s'", path);
+
+                        while (info != null)
+                        {
+                                string name = info.get_name ();
+
+                                // If this is a directory, recursively call this method on that path.
+                                if (info.get_file_type () == GLib.FileType.DIRECTORY)
+                                {
+                                        this.load_thumbs (dir.get_child (name).get_path ());
+                                }
+
+				else
+				{
+					string full_path = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (),
+                                                        dir.get_path (), name);
+					this.add_photo (full_path);
+				}
+
+				info = iter.next_file ();
+			}
 		}
 
 		private void handle_selection_changed ()
