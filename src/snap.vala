@@ -64,7 +64,7 @@ namespace Snap
 
 		private void activate_photo_view (string path)
 		{
-			this.photo_viewer = new PhotoViewer (path);
+			this.photo_viewer = new PhotoViewer (path.replace ("thumb", "high"));
 			this.thumb_browser.container.hide ();
 
 			this.container.remove (this.thumb_browser.container);
