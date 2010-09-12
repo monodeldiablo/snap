@@ -93,9 +93,9 @@ namespace Snap
 			this.view.selection_mode = Gtk.SelectionMode.MULTIPLE;
 
 			this.container = new Gtk.ScrolledWindow (null, null);
-			this.container.add_with_viewport (this.view);
 			this.container.hscrollbar_policy = Gtk.PolicyType.NEVER;
 			this.container.vscrollbar_policy = Gtk.PolicyType.AUTOMATIC;
+			this.container.add (this.view);
 
 			this.view.selection_changed.connect (this.handle_selection_changed);
 			this.view.item_activated.connect (this.handle_item_activated);
