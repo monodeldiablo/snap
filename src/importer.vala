@@ -56,6 +56,7 @@ namespace Snap
 		private Gtk.Label current_file;
 		private Gtk.ProgressBar progress;
 		private Gtk.Label summary;
+		private Gtk.TextView errors;
 
 		public Importer (string [] args)
 		{
@@ -106,8 +107,6 @@ namespace Snap
 
 		private Gtk.Widget create_progress_page ()
 		{
-			// FIXME: Update this label for each file
-			//        (e.g. "DSC8193.JPG -> 2010012343343.jpg")
 			this.current_file = new Gtk.Label ("Importing...");
 			this.current_file.use_markup = true;
 			this.progress = new Gtk.ProgressBar ();
@@ -124,11 +123,24 @@ namespace Snap
 
 		private Gtk.Widget create_summary_page()
 		{
+			Gtk.VBox box = new Gtk.VBox (false, 0);
+			Gtk.ScrolledWindow win = new Gtk.ScrolledWindow (null, null);
+
 			this.summary = new Gtk.Label ("");
+			this.errors = new Gtk.TextView ();
+
 			this.summary.use_markup = true;
 			this.summary.wrap = true;
+			this.errors.editable = false;
 
-			return this.summary;
+			win.hscrollbar_policy = Gtk.PolicyType.AUTOMATIC;
+			win.vscrollbar_policy = Gtk.PolicyType.AUTOMATIC;
+			win.add_with_viewport (this.errors);
+
+			box.pack_start (this.summary);
+			box.pack_start (win);
+
+			return box;
 		}
 
 		private void set_import_directory ()
@@ -139,31 +151,9 @@ namespace Snap
 
 		private void import ()
 		{
-			string [] paths = {};
-			string dir_path = this.import_directory.get_path ();
-
 			try
 			{
-				GLib.FileEnumerator iter = this.import_directory.enumerate_children ("*",
-					GLib.FileQueryInfoFlags.NONE);
-
-				// Loop over the files, appending each path to "paths".
-				GLib.FileInfo info = iter.next_file ();
-
-				while (info != null)
-				{
-					string name = info.get_name ();
-					string content_type = info.get_content_type ();
-
-					// FIXME: This is still too loose, allowing PNGs, GIFs, SVGs, and other
-					//        unsavory formats in to clog up the pipes.
-					if (content_type.has_prefix ("image/"))
-					{
-						paths += GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (), dir_path, name);
-					}
-
-					info = iter.next_file ();
-				}
+				string [] paths = this.get_all_files_in_dir (this.import_directory);
 				debug ("Preparing to import %d files...", paths.length);
 
 				// Initialize the progress bar.
@@ -195,7 +185,12 @@ namespace Snap
 				critical (e.message);
 
 				this.current_file.set_text ("Unrecoverable error! Please see the next page for more information.");
-				this.summary.set_text ("Uh oh! A fatal error occurred during import: %s".printf (e.message));
+				this.summary.set_text ("Uh oh! A fatal error occurred during import!");
+
+				var buf = new Gtk.TextBuffer (null);
+				buf.set_text (e.message);
+				this.errors.buffer = buf;
+
 				this.set_page_complete (this.pages[PageIndex.PROGRESS].widget, true);
 			}
 		}
@@ -204,11 +199,13 @@ namespace Snap
 		private void summarize ()
 		{
 			string text = "";
+			string errors_summary;
 
 			if (this.failures.size > 0)
 			{
 				text = "Uh oh! There were %d failures (out of %d total photos):\n".printf (this.failures.size,
 					this.requests.size);
+				errors_summary = "";
 
 				Gee.MapIterator<uint, string> iter = this.failures.map_iterator ();
 
@@ -218,13 +215,18 @@ namespace Snap
 				{
 					string reason = iter.get_value ();
 
-					text += "\n • %s".printf (reason);
+					errors_summary += " • %s\n".printf (reason);
 				} while (iter.next ());
+
+				var buf = new Gtk.TextBuffer (null);
+				buf.set_text (errors_summary);
+				this.errors.buffer = buf;
 			}
 
 			else
 			{
 				text = "Yay! Successfully imported %d photos.".printf (this.requests.size);
+				this.errors.hide ();
 			}
 
 			this.summary.set_markup (text);
@@ -308,6 +310,54 @@ namespace Snap
 			}
 
 			return page_index + 1;
+		}
+
+		// Recursively build a list of files to import, given a directory.
+		private string [] get_all_files_in_dir (GLib.File dir) throws GLib.Error
+		{
+			string [] paths = {};
+			debug ("-> getting files in %s", dir.get_path ());
+
+			GLib.FileEnumerator iter = dir.enumerate_children ("*",
+				GLib.FileQueryInfoFlags.NONE);
+
+			// Loop over the files, appending each path to "paths".
+			GLib.FileInfo info = iter.next_file ();
+
+			while (info != null)
+			{
+				string name = info.get_name ();
+
+				// If this is a directory, recursively call this method on that path.
+				if (info.get_file_type () == GLib.FileType.DIRECTORY)
+				{
+					string [] subdir_paths = this.get_all_files_in_dir (dir.get_child (name));
+
+					foreach (string subdir_path in subdir_paths)
+					{
+						paths += subdir_path;
+					}
+				}
+
+				else
+				{
+					string content_type = info.get_content_type ();
+
+					// FIXME: This is still too loose, allowing PNGs, GIFs, SVGs, and other
+					//        unsavory formats in to clog up the pipes.
+					if (content_type.has_prefix ("image/"))
+					{
+						paths += GLib.Path.build_path (GLib.Path.DIR_SEPARATOR.to_string (),
+							dir.get_path (), name);
+					}
+				}
+
+				info = iter.next_file ();
+			}
+
+			iter.close ();
+
+			return paths;
 		}
 
 		public void quit ()
