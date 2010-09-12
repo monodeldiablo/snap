@@ -288,6 +288,9 @@ namespace Snap
 
 					info.get_modification_time (out time);
 					datetime_string = time.to_iso8601 ();
+
+					// NOTE: This adds subsecond resolution to 'datetime_string'.
+					datetime_string = datetime_string.replace ("Z", ".0000Z");
 				}
 
 				catch (GLib.Error e)
@@ -308,11 +311,11 @@ namespace Snap
 			}
 			*/
 
-			// Extract the DateTime and SubSecTime values from the EXIF dump.
+			// Extract the DateTime and SubSecTime values from the datetime string.
 			// NOTE: The "subsecond" substring from xmpl is 4 characters long, but Snap
 			//       will only track subsecond resolution to the hundredth of a second.
 			//       The truncation is regrettable, but should only impact a very tiny
-			//       number of cases.
+			//       number of cases (when photos are taken less than 0.01 sec apart).
 			GLib.MatchInfo datetime_match;
 			GLib.Regex datetime_regex = new GLib.Regex (
 				"(?<year>\\d{4})-" +
