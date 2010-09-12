@@ -48,13 +48,18 @@ namespace Snap
 		private ImporterPage [] pages;
 		private GLib.File import_directory;
 		private dynamic DBus.Object import_daemon;
+		private dynamic DBus.Object thumbnail_daemon;
 		private Gee.HashMap<uint, string> requests;
 		private Gee.HashMap<uint, string> successes;
 		private Gee.HashMap<uint, string> failures;
+		private Gee.HashMap<uint, string> thumb_requests;
+		private Gee.HashMap<uint, string> thumb_successes;
+		private Gee.HashMap<uint, string> thumb_failures;
 
 		private Gtk.FileChooserButton chooser;
 		private Gtk.Label current_file;
-		private Gtk.ProgressBar progress;
+		private Gtk.ProgressBar import_progress;
+		private Gtk.ProgressBar thumb_progress;
 		private Gtk.Label summary;
 		private Gtk.TextView errors;
 
@@ -109,14 +114,16 @@ namespace Snap
 		{
 			this.current_file = new Gtk.Label ("Importing...");
 			this.current_file.use_markup = true;
-			this.progress = new Gtk.ProgressBar ();
+			this.import_progress = new Gtk.ProgressBar ();
+			this.thumb_progress = new Gtk.ProgressBar ();
 			Gtk.VBox box = new Gtk.VBox (false, 0);
 
-			this.progress.adjustment = new Adjustment (0.0, 0.0, 1.0, 0.01, 0.01, 0.1);
-			this.progress.pulse ();
+			this.import_progress.adjustment = new Adjustment (0.0, 0.0, 1.0, 0.01, 0.01, 0.1);
+			this.thumb_progress.adjustment = new Adjustment (0.0, 0.0, 1.0, 0.01, 0.01, 0.1);
 
 			box.pack_start (current_file);
-			box.pack_start (this.progress);
+			box.pack_start (this.import_progress);
+			box.pack_start (this.thumb_progress);
 
 			return box;
 		}
@@ -157,7 +164,8 @@ namespace Snap
 				debug ("Preparing to import %d files...", paths.length);
 
 				// Initialize the progress bar.
-				this.progress.fraction = 0.0;
+				this.import_progress.fraction = 0.0;
+				this.thumb_progress.fraction = 0.0;
 
 				// Connect to the import daemon.
 				this.set_up_connections ();
@@ -165,6 +173,9 @@ namespace Snap
 				// Set up the success and failure hashes for summary.
 				this.successes = new Gee.HashMap<int, string> ();
 				this.failures = new Gee.HashMap<int, string> ();
+				this.thumb_requests = new Gee.HashMap<int, string> ();
+				this.thumb_successes = new Gee.HashMap<int, string> ();
+				this.thumb_failures = new Gee.HashMap<int, string> ();
 
 				// Submit request to import daemon.
 				uint [] request_ids = this.import_daemon.import (paths);
@@ -243,10 +254,15 @@ namespace Snap
                                 this.import_daemon = conn.get_object ("org.washedup.Snap.Import",
                                         "/org/washedup/Snap/Import",
                                         "org.washedup.Snap.Import");
+				this.thumbnail_daemon = conn.get_object ("org.washedup.Snap.Thumbnail",
+					"/org/washedup/Snap/Thumbnail",
+					"org.washedup.Snap.Thumbnail");
 
 				// Register callbacks for the import daemon's updates.
 				this.import_daemon.RequestSucceeded.connect (this.handle_import_request_succeeded);
 				this.import_daemon.RequestFailed.connect (this.handle_import_request_failed);
+				this.thumbnail_daemon.RequestSucceeded.connect (this.handle_thumbnail_request_succeeded);
+				this.thumbnail_daemon.RequestFailed.connect (this.handle_thumbnail_request_failed);
                         }
 
 			catch (DBus.Error e)
@@ -262,6 +278,10 @@ namespace Snap
 
 			this.successes.set (request_id, new_path);
 
+			string [] paths = {new_path};
+			uint [] id = this.thumbnail_daemon.thumbnail (paths);
+			this.thumb_requests.set (id[0], new_path);
+
 			this.current_file.set_markup ("'%s' → '%s'".printf (original_path, new_path));
 			this.increment_progress_bar ();
 		}
@@ -273,18 +293,41 @@ namespace Snap
 
 			this.failures.set (request_id, reason);
 
-			this.current_file.set_markup ("'%s' <span foreground='red' weight='bold'>FAILED!</span>".printf (original_path));
+			this.import_progress.set_text ("'%s' FAILED!".printf (original_path));
+			this.increment_progress_bar ();
+		}
+
+		private void handle_thumbnail_request_succeeded (dynamic DBus.Object daemon, uint request_id, string new_path)
+		{
+			string original_path = this.thumb_requests.get (request_id);
+			debug ("thumbnail succeeded for #%u ('%s' → '%s')", request_id, original_path, new_path);
+
+			this.thumb_successes.set (request_id, new_path);
+
+			this.thumb_progress.set_text ("'%s' → '%s'".printf (original_path, new_path));
+			this.increment_progress_bar ();
+		}
+
+		private void handle_thumbnail_request_failed (dynamic DBus.Object daemon, uint request_id, string reason)
+		{
+			string original_path = this.thumb_requests.get (request_id);
+			debug ("thumbnail failed for #%u (%s): %s", request_id, original_path, reason);
+
+			this.thumb_failures.set (request_id, reason);
+
+			this.thumb_progress.set_text ("'%s' FAILED".printf (original_path));
 			this.increment_progress_bar ();
 		}
 
 		private void increment_progress_bar ()
 		{
-			double step = 1.0 / (double) this.requests.size;
-			this.progress.fraction += step;
+			int num_finished = this.successes.size + this.failures.size;
+			int num_thumbs_finished = this.thumb_successes.size + this.thumb_failures.size;
 
-			double delta = GLib.Math.fabs(1.0 - this.progress.fraction);
+			this.import_progress.fraction = (double) num_finished / (double) this.requests.size;
+			this.thumb_progress.fraction = (double) num_thumbs_finished / (double) this.thumb_requests.size;
 
-			if (delta < step)
+			if (this.requests.size == num_finished && this.thumb_requests.size == num_thumbs_finished)
 			{
 				this.current_file.set_markup ("Importing... done!");
 				this.set_page_complete (this.pages[PageIndex.PROGRESS].widget, true);
