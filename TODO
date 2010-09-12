@@ -1,13 +1,10 @@
 v0.1.0
 ------
-* implement duplicate checking in the import daemon!
-  * check out Gio.File.equal () & Gio.File.hash ()
-  * check file size (why?)
-  * hash similarly-sized photos (why?)
-  * pop up photo view w/both photos, asking if they are duplicates
-    * if the user says "yes", then ignore the photo & don't import
-    * if the user says "no", then increment the destination number (add 1 to
-      the subsecond part of the file name) and continue
+* implement thumb directory traversal for the thumb browser
+* pop up photo view w/both photos if duplicates are detected
+  * if the user says "yes", then ignore the photo & don't import
+  * if the user says "no", then increment the destination number (add 1 to
+    the subsecond part of the file name) and continue
 * integrate ThumbBrowser & PhotoViewer with the RotateDaemon
 * integrate with Tracker (tracker-client)
   * learn SPARQL
