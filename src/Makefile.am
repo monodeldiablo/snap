@@ -29,13 +29,13 @@ bin_PROGRAMS = \
 	importer \
 	$(NULL)
 
-daemon_prereqs = \
+DAEMON_PREREQS = \
 	snap_daemon.vala \
 	snap_request.vala
 
 snap_import_daemon_SOURCES = \
 	snap_import_daemon.vala \
-	daemon_prereqs \
+	$(DAEMON_PREREQS) \
 	$(NULL)
 
 snap_import_daemon_LDADD = \
@@ -44,7 +44,7 @@ snap_import_daemon_LDADD = \
 
 snap_thumbnail_daemon_SOURCES = \
 	snap_thumbnail_daemon.vala \
-	daemon_prereqs \
+	$(DAEMON_PREREQS) \
 	snap_invocation.vala \
 	$(NULL)
 
@@ -54,7 +54,7 @@ snap_thumbnail_daemon_LDADD = \
 
 snap_rotate_daemon_SOURCES = \
 	snap_rotate_daemon.vala \
-	daemon_prereqs \
+	$(DAEMON_PREREQS) \
 	snap_invocation.vala \
 	$(NULL)
 
@@ -64,7 +64,7 @@ snap_rotate_daemon_LDADD = \
 
 snap_delete_daemon_SOURCES = \
 	snap_delete_daemon.vala \
-	daemon_prereqs \
+	$(DAEMON_PREREQS) \
 	$(NULL)
 
 snap_delete_daemon_LDADD = \
@@ -73,7 +73,7 @@ snap_delete_daemon_LDADD = \
 
 snap_metadata_daemon_SOURCES = \
 	snap_metadata_daemon.vala \
-	daemon_prereqs \
+	$(DAEMON_PREREQS) \
 	$(NULL)
 
 snap_metadata_daemon_LDADD = \
@@ -82,7 +82,7 @@ snap_metadata_daemon_LDADD = \
 
 snap_preferences_daemon_SOURCES = \
 	snap_preferences_daemon.vala \
-	daemon_prereqs
+	$(DAEMON_PREREQS)
 	$(NULL)
 
 snap_preferences_daemon_LDADD = \
