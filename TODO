@@ -1,5 +1,6 @@
 v0.1.0
 ------
+* Fix thumb extraction for NEFs to not extract TIF files or whatever.
 * pop up photo view w/both photos if duplicates are detected
   * if the user says "yes", then ignore the photo & don't import
   * if the user says "no", then increment the destination number (add 1 to
