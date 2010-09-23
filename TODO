@@ -6,6 +6,7 @@ v0.1.0
     the subsecond part of the file name) and continue
 * integrate ThumbBrowser & PhotoViewer with the RotateDaemon
 * integrate with Tracker (tracker-client)
+  * pull tag list from Tracker (and remove from preferences)
   * learn SPARQL
   * figure out which queries are necessary/desired
   * abandon XMPL & invocation in favor of Tracker writeback (!!)
