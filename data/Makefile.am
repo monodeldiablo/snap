@@ -2,11 +2,11 @@ NULL =
 
 snapdir = ${pkgdatadir}
 snap_DATA = \
-	snap.svg \
 	main.ui \
 	importer.ui \
 	photo_viewer.ui \
 	preferences.ui \
+	film_strip.png \
 	$(NULL)
 
 schemadir = ${datadir}/gconf/schemas

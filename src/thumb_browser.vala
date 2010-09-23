@@ -28,10 +28,14 @@ using DBus;
 
 namespace Snap
 {
+	public int THUMB_SIZE = 128;
+	public int EMBLEM_SIZE = 24;
+
 	public enum ThumbBrowserColumns
 	{
 		PATH,
 		PIXBUF,
+		HAS_RAW,
 		NUM_COLUMNS
 	}
 
@@ -52,11 +56,10 @@ namespace Snap
 			this.set_up_ui ();
 
 			this.photo_directory = this.preferences_daemon.get_preference ("photo-directory");
+
 			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
 				this.photo_directory,
 				"thumb");
-debug ("got '%s' as the thumb dir", thumb_dir);
-
 			this.load_thumbs (thumb_dir);
 		}
 
@@ -83,6 +86,7 @@ debug ("got '%s' as the thumb dir", thumb_dir);
 			this.store = new Gtk.ListStore (ThumbBrowserColumns.NUM_COLUMNS,
 				typeof (string),
 				typeof (Gdk.Pixbuf),
+				typeof (bool),
 				-1);
 			this.view = new Gtk.IconView.with_model (this.store);
 			this.view.tooltip_column = ThumbBrowserColumns.PATH;
@@ -99,13 +103,26 @@ debug ("got '%s' as the thumb dir", thumb_dir);
 		}
 
 		// Recursively load thumbs.
+		// FIXME: Instead of just browsing the thumbs, browse the "high" directory.
+		//        If a thumb is not present for a given photo, generate it on the
+		//        fly. Also, if a raw version of the current file is present, attach
+		//        some emblem or halo to this effect.
 		private void load_thumbs (string path)
 		{
+			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				this.photo_directory,
+				"thumb");
+			string high_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				this.photo_directory,
+				"high");
+			string raw_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				this.photo_directory,
+				"raw");
+
 			GLib.File dir = GLib.File.new_for_path (path);
 			GLib.FileEnumerator iter = dir.enumerate_children ("*",
 				GLib.FileQueryInfoFlags.NONE);
                         GLib.FileInfo info = iter.next_file ();
-debug("-> in '%s'", path);
 
                         while (info != null)
                         {
@@ -159,24 +176,56 @@ debug("-> in '%s'", path);
 
 		// FIXME: Think this out a little more and make it work for thumbs, while
 		//        you're at it.
+		// FIXME: Attach an emblem to the image (film roll?) corner to indicate it
+		//        has a corresponding raw file.
+		// FIXME: This should just put data in the store. The renderer should
+		//        conditionally add the emblem based on the value of the HAS_RAW
+		//        column.
 		public void add_photo (string path)
 		{
 			Gtk.TreeIter iter;
 
 			try
 			{
-				// FIXME: CONSTANT ALERT!! 128 => THUMB_SIZE
-				Gdk.Pixbuf pixbuf = new Gdk.Pixbuf.from_file_at_scale (path, 128, 128, true);
+				Gdk.Pixbuf thumb = new Gdk.Pixbuf.from_file_at_scale (path,
+					THUMB_SIZE,
+					THUMB_SIZE,
+					true);
+
+				// FIXME: Check to see if a raw file exists. If so, do the following:
+				string emblem_path = GLib.Path.build_filename (Config.PACKAGE_DATADIR,
+					"film_strip.png");
+				Gdk.Pixbuf emblem = new Gdk.Pixbuf.from_file_at_scale (emblem_path,
+					EMBLEM_SIZE,
+					EMBLEM_SIZE,
+					true);
+
+				emblem.composite (thumb,
+					0,
+					0,
+					thumb.width,
+					thumb.height,
+					thumb.width - emblem.width,
+					0.0,
+					1.0,
+					1.0,
+					Gdk.InterpType.BILINEAR,
+					255);
 
 				this.store.append (out iter);
 				this.store.set (iter,
 					ThumbBrowserColumns.PATH,
 					path,
 					ThumbBrowserColumns.PIXBUF,
-					pixbuf,
+					thumb,
+					ThumbBrowserColumns.HAS_RAW,
+					true,
 					-1);
 			}
 
+			// FIXME: Rescue specific PixbufErrors here, displaying the "broken" image
+			//        or some other appropriate messaging (e.g. "This image is corrupt.
+			//        Please make sure you have a backup.").
 			catch (GLib.Error e)
 			{
 				error (e.message);
