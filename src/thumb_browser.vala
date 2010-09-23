@@ -184,15 +184,44 @@ namespace Snap
 		public void add_photo (string path)
 		{
 			Gtk.TreeIter iter;
+			bool has_raw = false;
+
+			// FIXME: Search for the raw file here.
+			// FIXME: Remove the common prefix, drop the next level from the path
+			//        (in this case, "thumb" or "high") and replace with "raw".
 
 			try
 			{
-				Gdk.Pixbuf thumb = new Gdk.Pixbuf.from_file_at_scale (path,
-					THUMB_SIZE,
-					THUMB_SIZE,
-					true);
+				this.store.append (out iter);
+				this.store.set (iter,
+					ThumbBrowserColumns.PATH,
+					path,
+					ThumbBrowserColumns.PIXBUF,
+					this.make_thumb (path, has_raw),
+					ThumbBrowserColumns.HAS_RAW,
+					has_raw,
+					-1);
+			}
 
-				// FIXME: Check to see if a raw file exists. If so, do the following:
+			// FIXME: Rescue specific PixbufErrors here, displaying the "broken" image
+			//        or some other appropriate messaging (e.g. "This image is corrupt.
+			//        Please make sure you have a backup.").
+			catch (GLib.Error e)
+			{
+				error (e.message);
+			}
+		}
+
+		private Gdk.Pixbuf make_thumb (string path, bool has_raw)
+		{
+			Gdk.Pixbuf thumb = new Gdk.Pixbuf.from_file_at_scale (path,
+				THUMB_SIZE,
+				THUMB_SIZE,
+				true);
+
+			// Check to see if a raw file exists. If so, do the following:
+			if (has_raw)
+			{
 				string emblem_path = GLib.Path.build_filename (Config.PACKAGE_DATADIR,
 					"film_strip.png");
 				Gdk.Pixbuf emblem = new Gdk.Pixbuf.from_file_at_scale (emblem_path,
@@ -211,25 +240,9 @@ namespace Snap
 					1.0,
 					Gdk.InterpType.BILINEAR,
 					255);
-
-				this.store.append (out iter);
-				this.store.set (iter,
-					ThumbBrowserColumns.PATH,
-					path,
-					ThumbBrowserColumns.PIXBUF,
-					thumb,
-					ThumbBrowserColumns.HAS_RAW,
-					true,
-					-1);
 			}
 
-			// FIXME: Rescue specific PixbufErrors here, displaying the "broken" image
-			//        or some other appropriate messaging (e.g. "This image is corrupt.
-			//        Please make sure you have a backup.").
-			catch (GLib.Error e)
-			{
-				error (e.message);
-			}
+			return thumb;
 		}
 	}
 }
