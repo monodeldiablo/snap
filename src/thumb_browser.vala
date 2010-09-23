@@ -46,6 +46,9 @@ namespace Snap
 		private Gtk.ListStore store;
 		private dynamic DBus.Object preferences_daemon;
 		private string photo_directory;
+		private string high_directory;
+		private string thumb_directory;
+		private string raw_directory;
 
 		public signal void selected (string [] paths);
 		public signal void activated (string path);
@@ -56,11 +59,17 @@ namespace Snap
 			this.set_up_ui ();
 
 			this.photo_directory = this.preferences_daemon.get_preference ("photo-directory");
-
-			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+			this.high_directory = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				this.photo_directory,
+				"high");
+			this.thumb_directory = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
 				this.photo_directory,
 				"thumb");
-			this.load_thumbs (thumb_dir);
+			this.raw_directory = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
+				this.photo_directory,
+				"raw");
+			
+			this.load_thumbs (this.high_directory);
 		}
 
 		private void set_up_connections ()
@@ -109,16 +118,6 @@ namespace Snap
 		//        some emblem or halo to this effect.
 		private void load_thumbs (string path)
 		{
-			string thumb_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				this.photo_directory,
-				"thumb");
-			string high_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				this.photo_directory,
-				"high");
-			string raw_dir = GLib.Path.build_path (GLib.Path.DIR_SEPARATOR_S,
-				this.photo_directory,
-				"raw");
-
 			GLib.File dir = GLib.File.new_for_path (path);
 			GLib.FileEnumerator iter = dir.enumerate_children ("*",
 				GLib.FileQueryInfoFlags.NONE);
@@ -174,21 +173,16 @@ namespace Snap
 			this.activated ((string) file);
 		}
 
-		// FIXME: Think this out a little more and make it work for thumbs, while
-		//        you're at it.
-		// FIXME: Attach an emblem to the image (film roll?) corner to indicate it
-		//        has a corresponding raw file.
+		// Given a high resolution photo path, this locates the thumbnail
+		// (generating one if it doesn't exist) and, if a corresponding raw file
+		// is present, indicates this by superimposing a graphic on the thumbnail.
 		// FIXME: This should just put data in the store. The renderer should
 		//        conditionally add the emblem based on the value of the HAS_RAW
 		//        column.
 		public void add_photo (string path)
 		{
 			Gtk.TreeIter iter;
-			bool has_raw = false;
-
-			// FIXME: Search for the raw file here.
-			// FIXME: Remove the common prefix, drop the next level from the path
-			//        (in this case, "thumb" or "high") and replace with "raw".
+			bool has_raw = this.find_raw (path);
 
 			try
 			{
@@ -212,14 +206,24 @@ namespace Snap
 			}
 		}
 
+		private bool find_raw (string path)
+		{
+			// FIXME: Remove the common prefix, drop the next level from the path
+			//        (in this case, "high") and replace with "raw".
+			string raw_path = path.replace (this.high_directory, this.raw_directory);
+
+			return GLib.FileUtils.test (raw_path, GLib.FileTest.EXISTS);
+		}
+
 		private Gdk.Pixbuf make_thumb (string path, bool has_raw)
 		{
-			Gdk.Pixbuf thumb = new Gdk.Pixbuf.from_file_at_scale (path,
+			string thumb_path = path.replace (this.high_directory, this.thumb_directory);
+
+			Gdk.Pixbuf thumb = new Gdk.Pixbuf.from_file_at_scale (thumb_path,
 				THUMB_SIZE,
 				THUMB_SIZE,
 				true);
 
-			// Check to see if a raw file exists. If so, do the following:
 			if (has_raw)
 			{
 				string emblem_path = GLib.Path.build_filename (Config.PACKAGE_DATADIR,
